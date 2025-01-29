@@ -173,7 +173,7 @@ end
 -- State change handling
 bowState.stateChanged:Connect(function(transition)
 	if bowAnimations then
-		bowAnimations:HandleStateChange(transition.to, BowState.States)
+		bowAnimations:HandleStateChange(transition.to, BowState)
 	end
 	
 	-- Handle camera based on state

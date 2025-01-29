@@ -147,9 +147,15 @@ function BowAnimations:HandleStateChange(newState, bowState)
     if newState == bowState.States.IDLE then
         self:SetArrowVisibility(false)
         self:PlayAnimation("idle", DRAW_BLEND_TIME)
+        if self.impactParticle then
+            self.impactParticle.Enabled = false
+        end
     elseif newState == bowState.States.DRAWING then
         self:SetArrowVisibility(true)
         self:PlayAnimation("drawing", DRAW_BLEND_TIME)
+        if self.impactParticle then
+            self.impactParticle.Enabled = false
+        end
     elseif newState == bowState.States.AIMED then
         self:SetArrowVisibility(true)
         -- Keep the drawing animation playing but fully weighted
@@ -159,11 +165,15 @@ function BowAnimations:HandleStateChange(newState, bowState)
     elseif newState == bowState.States.RELEASING then
         self:SetArrowVisibility(false)
         self:PlayAnimation("release", RELEASE_BLEND_TIME)
+        -- Impact particle will be handled by BowProjectiles module
     elseif newState == bowState.States.NOCKING then
         self:PlayAnimation("nock", NOCK_BLEND_TIME)
     elseif newState == bowState.States.IDLE_WITH_ARROW then
         self:SetArrowVisibility(true)
         self:PlayAnimation("idleWithArrow", NOCK_BLEND_TIME)
+        if self.impactParticle then
+            self.impactParticle.Enabled = false
+        end
     end
     
     self.currentState = newState
