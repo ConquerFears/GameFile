@@ -20,7 +20,7 @@ local DrawSound = Handle:WaitForChild("Draw")
 local CURSOR_STATES = {
 	DEFAULT = "",  -- Empty string means default system cursor
 	IDLE = "rbxassetid://140530585218698",  -- Normal dot cursor
-	COOLDOWN = "rbxassetid://104288534052915",  -- Gray dot curso
+	COOLDOWN = "rbxassetid://135877679054660",  -- Gray dot curso
 	DRAWING = "rbxassetid://140530585218698",  -- Same as idle dot cursor
 	READY = "rbxassetid://140530585218698"  -- Same as idle dot cursor
 }
