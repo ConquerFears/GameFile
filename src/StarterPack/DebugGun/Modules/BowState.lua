@@ -1,3 +1,4 @@
+local Signal = require(script.Parent.Parent.FastCastRedux.Signal)
 local BowState = {}
 
 -- State machine states
@@ -15,22 +16,106 @@ local MAX_DRAW_TIME = 7.0
 local SHOT_COOLDOWN = 5.0
 local SHOT_FOLLOW_TIME = 0.8
 
+-- Debug settings
+local DEBUG_MODE = false
+
 function BowState.new()
     local self = setmetatable({}, {__index = BowState})
+    
+    -- Core state
     self.currentState = BowState.States.IDLE
     self.stateStartTime = 0
     self.drawStartTime = 0
     self.lastShotTime = 0
+    
+    -- State flags (kept for compatibility)
     self.isMouseDown = false
     self.isReadyToShoot = false
     self.isCameraLocked = false
     self.isAiming = false
     self.isTransitioningOut = false
     self.isToolEquipped = false
+    
+    -- New state management features
+    self.stateChanged = Signal.new()
+    self.stateHistory = {}
+    self.maxHistoryLength = 10
+    self.debugMode = DEBUG_MODE
+    
     return self
 end
 
+function BowState:ValidateState(state)
+    for _, validState in pairs(BowState.States) do
+        if state == validState then
+            return true
+        end
+    end
+    return false
+end
+
+function BowState:LogStateChange(from, to, duration)
+    if not self.debugMode then return end
+    print(string.format("[BowState] %s -> %s (Duration: %.2fs)", from, to, duration))
+end
+
+function BowState:AddToHistory(transitionData)
+    table.insert(self.stateHistory, 1, transitionData)
+    if #self.stateHistory > self.maxHistoryLength then
+        table.remove(self.stateHistory)
+    end
+end
+
+function BowState:ApplyStateChanges(newState)
+    local stateChanges = {
+        [BowState.States.DRAWING] = function()
+            self.isAiming = true
+            self.isCameraLocked = false
+            self.drawStartTime = time()
+        end,
+        [BowState.States.AIMED] = function()
+            self.isAiming = true
+            self.isCameraLocked = false
+        end,
+        [BowState.States.RELEASING] = function()
+            self.isAiming = false
+            self.isTransitioningOut = true
+            self.isCameraLocked = true
+            self.lastShotTime = time()
+            self.isReadyToShoot = false
+            self.isMouseDown = false
+        end,
+        [BowState.States.COOLDOWN] = function()
+            self.isAiming = false
+            self.isTransitioningOut = false
+            self.isCameraLocked = false
+            self.isMouseDown = false
+        end,
+        [BowState.States.IDLE] = function()
+            self.isAiming = false
+            self.isTransitioningOut = false
+            self.isCameraLocked = false
+            self.isReadyToShoot = false
+            self.drawStartTime = 0
+        end
+    }
+
+    if stateChanges[newState] then
+        local success, err = pcall(stateChanges[newState])
+        if not success and self.debugMode then
+            warn(string.format("[BowState] Error applying state changes: %s", err))
+        end
+    end
+end
+
 function BowState:CanTransitionTo(newState)
+    if not self:ValidateState(newState) then
+        if self.debugMode then
+            warn(string.format("[BowState] Invalid state: %s", tostring(newState)))
+        end
+        return false
+    end
+    
     local currentTime = time()
     
     -- Basic validity checks
@@ -38,6 +123,9 @@ function BowState:CanTransitionTo(newState)
     
     -- Always check cooldown, even if transitioning from IDLE
     if newState == BowState.States.DRAWING and currentTime - self.lastShotTime < SHOT_COOLDOWN then
+        if self.debugMode then
+            warn("[BowState] Cannot draw while in cooldown")
+        end
         return false
     end
     
@@ -60,8 +148,41 @@ function BowState:CanTransitionTo(newState)
     return false
 end
 
+function BowState:TransitionTo(newState)
+    if not self:CanTransitionTo(newState) then return false end
+    
+    local previousState = self.currentState
+    local transitionTime = time()
+    local stateDuration = transitionTime - self.stateStartTime
+    
+    -- Create transition data
+    local transitionData = {
+        from = previousState,
+        to = newState,
+        timestamp = transitionTime,
+        duration = stateDuration
+    }
+    
+    -- Update state
+    self.currentState = newState
+    self.stateStartTime = transitionTime
+    
+    -- Apply state-specific changes
+    self:ApplyStateChanges(newState)
+    
+    -- Add to history and log
+    self:AddToHistory(transitionData)
+    self:LogStateChange(previousState, newState, stateDuration)
+    
+    -- Fire state change event
+    self.stateChanged:Fire(transitionData)
+    
+    return true
+end
+
+-- Keep existing methods for compatibility
 function BowState:ForceReset()
-    -- Complete reset of all states, ignoring cooldown
+    local previousState = self.currentState
     self.currentState = BowState.States.IDLE
     self.stateStartTime = 0
     self.drawStartTime = 0
@@ -71,10 +192,13 @@ function BowState:ForceReset()
     self.isCameraLocked = false
     self.isAiming = false
     self.isTransitioningOut = false
+    
+    if self.debugMode then
+        print("[BowState] Force reset from", previousState)
+    end
 end
 
 function BowState:Reset()
-    -- Don't reset cooldown-related variables if we're in cooldown
     if self.currentState == BowState.States.COOLDOWN then
         local previousLastShotTime = self.lastShotTime
         self.stateStartTime = time() - (time() - previousLastShotTime)
@@ -82,45 +206,6 @@ function BowState:Reset()
     else
         self:ForceReset()
     end
-end
-
-function BowState:TransitionTo(newState)
-    if not self:CanTransitionTo(newState) then return false end
-    
-    local previousState = self.currentState
-    self.currentState = newState
-    self.stateStartTime = time()
-    
-    if newState == BowState.States.DRAWING then
-        self.isAiming = true
-        self.isCameraLocked = false
-        self.drawStartTime = time()
-        -- Don't set isMouseDown here, it's managed by input handlers
-    elseif newState == BowState.States.AIMED then
-        self.isAiming = true
-        self.isCameraLocked = false
-    elseif newState == BowState.States.RELEASING then
-        self.isAiming = false
-        self.isTransitioningOut = true
-        self.isCameraLocked = true
-        self.lastShotTime = time()
-        self.isReadyToShoot = false
-        self.isMouseDown = false
-    elseif newState == BowState.States.COOLDOWN then
-        self.isAiming = false
-        self.isTransitioningOut = false
-        self.isCameraLocked = false
-        self.isMouseDown = false
-    elseif newState == BowState.States.IDLE then
-        self.isAiming = false
-        self.isTransitioningOut = false
-        self.isCameraLocked = false
-        self.isReadyToShoot = false
-        self.drawStartTime = 0
-        -- Don't set isMouseDown here, it's managed by input handlers
-    end
-    
-    return true
 end
 
 function BowState:Update()
@@ -145,6 +230,7 @@ function BowState:Update()
     end
 end
 
+-- Keep existing utility methods
 function BowState:GetChargeTime()
     if self.currentState ~= BowState.States.DRAWING and 
        self.currentState ~= BowState.States.AIMED then 
@@ -183,6 +269,32 @@ function BowState:GetConstants()
         SHOT_COOLDOWN = SHOT_COOLDOWN,
         SHOT_FOLLOW_TIME = SHOT_FOLLOW_TIME
     }
+end
+
+-- New debug and monitoring methods
+function BowState:EnableDebugMode(enabled)
+    self.debugMode = enabled
+end
+
+function BowState:GetStateHistory()
+    return table.clone(self.stateHistory)
+end
+
+function BowState:GetStateMetrics()
+    local metrics = {}
+    for _, transition in ipairs(self.stateHistory) do
+        metrics[transition.from] = metrics[transition.from] or {
+            totalTransitions = 0,
+            averageDuration = 0,
+            totalDuration = 0
+        }
+        
+        local stat = metrics[transition.from]
+        stat.totalTransitions += 1
+        stat.totalDuration += transition.duration
+        stat.averageDuration = stat.totalDuration / stat.totalTransitions
+    end
+    return metrics
 end
 
 return BowState 
