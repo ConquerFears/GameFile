@@ -20,7 +20,8 @@ local DrawSound = Handle:WaitForChild("Draw")
 local CURSOR_STATES = {
 	DEFAULT = "",
 	DRAWING = "rbxassetid://140530585218698",
-	READY = "rbxassetid://140530585218698"
+	READY = "rbxassetid://140530585218698",
+	COOLDOWN = "rbxassetid://140530585218698"  -- Added cooldown cursor state
 }
 
 -- Initialize components
@@ -33,7 +34,9 @@ local mouse = nil
 local function UpdateMouseIcon()
 	if not mouse or Tool.Parent:IsA("Backpack") then return end
 
-	if bowState.isMouseDown then
+	if bowState.currentState == BowState.States.COOLDOWN then
+		mouse.Icon = CURSOR_STATES.COOLDOWN
+	elseif bowState.isMouseDown then
 		if bowState.isReadyToShoot then
 			mouse.Icon = CURSOR_STATES.READY
 		else
@@ -50,6 +53,15 @@ local function OnInputBegan(input, gameHandled)
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
 	if not mouse then return end
 	if not bowState:IsToolEquipped() then return end
+	
+	-- Check if we're in cooldown
+	if bowState.currentState == BowState.States.COOLDOWN then
+		local timeLeft = bowState:GetConstants().SHOT_COOLDOWN - (time() - bowState.lastShotTime)
+		if timeLeft > 0 then
+			-- Could add UI feedback here about cooldown remaining
+			return
+		end
+	end
 
 	bowState.isMouseDown = true
 	if bowState:TransitionTo(BowState.States.DRAWING) then
@@ -69,6 +81,7 @@ local function OnInputEnded(input, gameHandled)
 		MouseEvent:FireServer(mouse.Hit.Position, power)
 		bowState:TransitionTo(BowState.States.RELEASING)
 		bowUI:Reset()  -- Reset UI immediately after shot
+		bowCamera:SetEnabled(false)  -- Start camera transition back
 	else
 		bowState:TransitionTo(BowState.States.IDLE)
 		bowCamera:SetEnabled(false)
@@ -93,6 +106,9 @@ local function Update()
 
 	-- Update state
 	bowState:Update()
+	
+	-- Update mouse icon (to show cooldown state)
+	UpdateMouseIcon()
 
 	-- Update camera if aiming
 	if bowState.isAiming then

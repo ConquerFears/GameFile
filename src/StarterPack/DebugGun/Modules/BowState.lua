@@ -12,7 +12,7 @@ BowState.States = {
 -- Constants
 local MIN_DRAW_TIME = 1.5
 local MAX_DRAW_TIME = 7.0
-local SHOT_COOLDOWN = 0.3
+local SHOT_COOLDOWN = 5.0
 local SHOT_FOLLOW_TIME = 0.8
 
 function BowState.new()
@@ -70,14 +70,14 @@ function BowState:TransitionTo(newState)
         self.isCameraLocked = false
     elseif newState == BowState.States.RELEASING then
         self.isAiming = false
-        self.isTransitioningOut = false
+        self.isTransitioningOut = true
         self.isCameraLocked = true
         self.lastShotTime = time()
-        self.isReadyToShoot = false  -- Reset ready state
+        self.isReadyToShoot = false
     elseif newState == BowState.States.COOLDOWN then
         self.isAiming = false
         self.isTransitioningOut = true
-        self.isCameraLocked = true
+        self.isCameraLocked = false
     elseif newState == BowState.States.IDLE then
         self.isAiming = false
         self.isTransitioningOut = false
