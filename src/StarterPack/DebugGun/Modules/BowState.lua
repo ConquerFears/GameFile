@@ -41,7 +41,7 @@ function BowState.new()
     self.isToolEquipped = false
     
     -- New state management features
-    self.stateChanged = Signal.new()
+    self.stateChanged = Signal.new("StateChanged")
     self.stateHistory = {}
     self.maxHistoryLength = 10
     self.debugMode = DEBUG_MODE
