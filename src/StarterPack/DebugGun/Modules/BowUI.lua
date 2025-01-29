@@ -3,7 +3,7 @@ local BowUI = {}
 -- Constants
 local BRACKET_SPREAD = 75
 local BRACKET_MIN_SPREAD = 12
-local BRACKET_IMAGE = "rbxassetid://132698696496946"
+local BRACKET_IMAGE = "rbxassetid://3926307971"
 local BRACKET_SIZE_X = 30
 local BRACKET_SIZE_Y = 20
 local BRACKET_TRANSPARENCY = 0.4
@@ -127,12 +127,13 @@ end
 
 function BowUI:UpdateChargeBar(chargeTime, minDrawTime, maxDrawTime, mousePosition)
     if not self.initialized then return end
-    if not mousePosition or chargeTime <= 0 then
+    if not mousePosition then
         self.chargeBarContainer.Visible = false
         return
     end
 
-    self.chargeBarContainer.Visible = true
+    -- Show charge bar during drawing and aimed states
+    self.chargeBarContainer.Visible = chargeTime > 0
     local normalizedCharge = math.clamp(chargeTime / minDrawTime, 0, 1)
     local overchargeProgress = math.clamp((chargeTime - minDrawTime) / (maxDrawTime - minDrawTime), 0, 1)
 
@@ -165,10 +166,13 @@ function BowUI:UpdateBrackets(mousePosition, chargeTime, minDrawTime, maxDrawTim
         return
     end
 
-    if chargeTime < minDrawTime then
-        for _, bracket in ipairs(self.brackets) do
-            bracket.Visible = false
-        end
+    -- Show brackets during drawing and aimed states
+    local shouldShowBrackets = chargeTime > 0
+    for _, bracket in ipairs(self.brackets) do
+        bracket.Visible = shouldShowBrackets
+    end
+
+    if not shouldShowBrackets then
         self.currentBracketSpread = BRACKET_SPREAD
         return
     end
@@ -199,7 +203,6 @@ function BowUI:UpdateBrackets(mousePosition, chargeTime, minDrawTime, maxDrawTim
 
         bracket.Position = UDim2.new(0, mousePosition.X + offsetX, 0, mousePosition.Y + offsetY)
         bracket.Rotation = math.deg(angle) + 180
-        bracket.Visible = true
     end
 end
 

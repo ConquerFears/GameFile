@@ -87,15 +87,15 @@ function BowAnimations:SetupLeftGrip(character)
     self.leftGrip.Name = "LeftGrip"
     self.leftGrip.Part0 = leftHand
     self.leftGrip.Part1 = self.bowPart
-    self.leftGrip.C0 = CFrame.new(0, 0, 0) * CFrame.Angles(0, 0, 0)
-    self.leftGrip.C1 = CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(180), 0)
+    self.leftGrip.C0 = CFrame.new(0, 0, 0.5) * CFrame.Angles(0, math.rad(90), 0)
+    self.leftGrip.C1 = CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(-90), 0)
     self.leftGrip.Parent = leftHand
 end
 
 function BowAnimations:UpdateBowString(drawProgress)
     if not self.initialized then return end
     
-    local middleOffset = Vector3.new(0, 0, -drawProgress * 2)
+    local middleOffset = Vector3.new(0, 0, drawProgress * 2)
     self.middleAttachment.Position = middleOffset
 end
 
