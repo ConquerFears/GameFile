@@ -58,12 +58,15 @@ local function OnInputBegan(input, gameHandled)
 	if bowState.currentState == BowState.States.COOLDOWN then
 		local timeLeft = bowState:GetConstants().SHOT_COOLDOWN - (time() - bowState.lastShotTime)
 		if timeLeft > 0 then
-			-- Could add UI feedback here about cooldown remaining
 			return
 		end
 	end
+	
+	-- Reset state if we're not in a valid state
+	if bowState.currentState ~= BowState.States.IDLE and bowState.currentState ~= BowState.States.COOLDOWN then
+		bowState:ForceReset()
+	end
 
-	bowState.isMouseDown = true
 	if bowState:TransitionTo(BowState.States.DRAWING) then
 		bowCamera:SetEnabled(true)
 		DrawSound:Play()
@@ -80,15 +83,14 @@ local function OnInputEnded(input, gameHandled)
 		local power = bowState:CalculateChargePower()
 		MouseEvent:FireServer(mouse.Hit.Position, power)
 		bowState:TransitionTo(BowState.States.RELEASING)
-		bowUI:Reset()  -- Reset UI immediately after shot
-		bowCamera:SetEnabled(false)  -- Start camera transition back
+		bowUI:Reset()
+		bowCamera:SetEnabled(false)
 	else
 		bowState:TransitionTo(BowState.States.IDLE)
 		bowCamera:SetEnabled(false)
-		bowUI:Reset()  -- Reset UI when canceling shot
+		bowUI:Reset()
 	end
 
-	bowState.isMouseDown = false
 	DrawSound:Stop()
 	UpdateMouseIcon()
 end
@@ -106,24 +108,20 @@ local function Update()
 
 	-- Update state
 	bowState:Update()
-	
-	-- Update mouse icon (to show cooldown state)
 	UpdateMouseIcon()
 
-	-- Update camera if aiming
-	if bowState.isAiming then
+	-- Update camera if aiming or transitioning
+	if bowState.isAiming or bowState.isTransitioningOut then
 		local delta = UserInputService:GetMouseDelta()
 		bowCamera:UpdateAim(delta, UserInputService.MouseDeltaSensitivity)
+		bowCamera:Update(humanoidRootPart, Vector3.new())
 	end
 
-	-- Update camera position and effects
-	local chargeTime = bowState:GetChargeTime()
-	local constants = bowState:GetConstants()
-	
-	bowCamera:Update(humanoidRootPart, Vector3.new())
-	
-	-- Only show UI elements if not in cooldown and actively drawing
-	if mouse and bowState.currentState ~= BowState.States.COOLDOWN and bowState.isMouseDown then
+	-- Only show UI elements if actively drawing and not in cooldown
+	if mouse and bowState.currentState == BowState.States.DRAWING then
+		local chargeTime = bowState:GetChargeTime()
+		local constants = bowState:GetConstants()
+		
 		bowUI:UpdateChargeBar(
 			chargeTime,
 			constants.MIN_DRAW_TIME,
@@ -136,10 +134,8 @@ local function Update()
 			chargeTime,
 			constants.MIN_DRAW_TIME,
 			constants.MAX_DRAW_TIME,
-			0.75  -- BASE_SPREAD_MULTIPLIER
+			0.75
 		)
-		
-		-- Removed vignette update as requested
 	end
 end
 
@@ -147,14 +143,16 @@ end
 local function InitializeComponents()
 	mouse = Players.LocalPlayer:GetMouse()
 	bowUI:Initialize()
-	bowState:Reset()  -- Reset state on equip
+	bowState:ForceReset()  -- Use ForceReset instead of Reset
 	bowState.isToolEquipped = true
-	bowCamera:Reset()  -- Reset camera on equip
+	bowCamera:Reset()
 	
-	-- Add small delay to ensure camera is ready
-	task.delay(0.1, function()
+	-- Ensure camera is properly initialized
+	task.spawn(function()
+		task.wait(0.1)  -- Small delay to ensure character is loaded
 		if Tool.Parent:IsA("Backpack") then return end
-		bowCamera:SaveState()  -- Ensure camera state is saved properly
+		bowCamera:SaveState()
+		bowCamera:SetEnabled(false)  -- Ensure camera starts disabled
 	end)
 	
 	UpdateMouseIcon()

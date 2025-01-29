@@ -60,6 +60,30 @@ function BowState:CanTransitionTo(newState)
     return false
 end
 
+function BowState:ForceReset()
+    -- Complete reset of all states, ignoring cooldown
+    self.currentState = BowState.States.IDLE
+    self.stateStartTime = 0
+    self.drawStartTime = 0
+    self.lastShotTime = 0
+    self.isMouseDown = false
+    self.isReadyToShoot = false
+    self.isCameraLocked = false
+    self.isAiming = false
+    self.isTransitioningOut = false
+end
+
+function BowState:Reset()
+    -- Don't reset cooldown-related variables if we're in cooldown
+    if self.currentState == BowState.States.COOLDOWN then
+        local previousLastShotTime = self.lastShotTime
+        self.stateStartTime = time() - (time() - previousLastShotTime)
+        self.lastShotTime = previousLastShotTime
+    else
+        self:ForceReset()
+    end
+end
+
 function BowState:TransitionTo(newState)
     if not self:CanTransitionTo(newState) then return false end
     
@@ -71,6 +95,7 @@ function BowState:TransitionTo(newState)
         self.isAiming = true
         self.isCameraLocked = false
         self.drawStartTime = time()
+        self.isMouseDown = true  -- Ensure mouse state is correct
     elseif newState == BowState.States.AIMED then
         self.isAiming = true
         self.isCameraLocked = false
@@ -80,16 +105,19 @@ function BowState:TransitionTo(newState)
         self.isCameraLocked = true
         self.lastShotTime = time()
         self.isReadyToShoot = false
+        self.isMouseDown = false  -- Reset mouse state
     elseif newState == BowState.States.COOLDOWN then
         self.isAiming = false
         self.isTransitioningOut = true
         self.isCameraLocked = false
+        self.isMouseDown = false  -- Reset mouse state
     elseif newState == BowState.States.IDLE then
         self.isAiming = false
         self.isTransitioningOut = false
         self.isCameraLocked = false
         self.isReadyToShoot = false
         self.drawStartTime = 0
+        self.isMouseDown = false  -- Reset mouse state
     end
     
     return true
@@ -152,22 +180,6 @@ function BowState:GetConstants()
         SHOT_COOLDOWN = SHOT_COOLDOWN,
         SHOT_FOLLOW_TIME = SHOT_FOLLOW_TIME
     }
-end
-
-function BowState:Reset()
-    -- Don't reset cooldown-related variables if we're in cooldown
-    local wasInCooldown = self.currentState == BowState.States.COOLDOWN
-    local previousLastShotTime = self.lastShotTime
-    
-    self.currentState = wasInCooldown and BowState.States.COOLDOWN or BowState.States.IDLE
-    self.stateStartTime = wasInCooldown and time() - (time() - previousLastShotTime) or 0
-    self.drawStartTime = 0
-    self.lastShotTime = wasInCooldown and previousLastShotTime or 0
-    self.isMouseDown = false
-    self.isReadyToShoot = false
-    self.isCameraLocked = false
-    self.isAiming = false
-    self.isTransitioningOut = false
 end
 
 return BowState 
