@@ -89,12 +89,12 @@ local function OnInputEnded(input, gameHandled)
 	if bowState.isReadyToShoot and bowState.currentState == BowState.States.AIMED then
 		local power = bowState:CalculateChargePower()
 		MouseEvent:FireServer(mouse.Hit.Position, power)
+		bowCamera:SetEnabled(false)  -- Disable camera before state transition
 		bowState:TransitionTo(BowState.States.RELEASING)
 		bowUI:Reset()
-		bowCamera:SetEnabled(false)
 	else
+		bowCamera:SetEnabled(false)  -- Disable camera before state transition
 		bowState:TransitionTo(BowState.States.IDLE)
-		bowCamera:SetEnabled(false)
 		bowUI:Reset()
 	end
 
@@ -177,9 +177,9 @@ local function CleanupComponents()
 	UserInputService.MouseIconEnabled = true
 	mouse.Icon = CURSOR_STATES.DEFAULT
 	
-	-- Don't reset state on cleanup to preserve cooldown
+	-- Ensure camera is disabled before state changes
+	bowCamera:SetEnabled(false)
 	bowState.isToolEquipped = false
-	bowCamera:SetEnabled(false)  -- Just disable camera without full cleanup
 	bowUI:Reset()
 	bowUI:Cleanup()
 end
