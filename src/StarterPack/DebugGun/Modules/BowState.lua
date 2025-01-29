@@ -95,7 +95,7 @@ function BowState:TransitionTo(newState)
         self.isAiming = true
         self.isCameraLocked = false
         self.drawStartTime = time()
-        self.isMouseDown = true  -- Ensure mouse state is correct
+        -- Don't set isMouseDown here, it's managed by input handlers
     elseif newState == BowState.States.AIMED then
         self.isAiming = true
         self.isCameraLocked = false
@@ -105,19 +105,19 @@ function BowState:TransitionTo(newState)
         self.isCameraLocked = true
         self.lastShotTime = time()
         self.isReadyToShoot = false
-        self.isMouseDown = false  -- Reset mouse state
+        self.isMouseDown = false
     elseif newState == BowState.States.COOLDOWN then
         self.isAiming = false
-        self.isTransitioningOut = true
+        self.isTransitioningOut = false
         self.isCameraLocked = false
-        self.isMouseDown = false  -- Reset mouse state
+        self.isMouseDown = false
     elseif newState == BowState.States.IDLE then
         self.isAiming = false
         self.isTransitioningOut = false
         self.isCameraLocked = false
         self.isReadyToShoot = false
         self.drawStartTime = 0
-        self.isMouseDown = false  -- Reset mouse state
+        -- Don't set isMouseDown here, it's managed by input handlers
     end
     
     return true
@@ -146,7 +146,10 @@ function BowState:Update()
 end
 
 function BowState:GetChargeTime()
-    if not self.isMouseDown then return 0 end
+    if self.currentState ~= BowState.States.DRAWING and 
+       self.currentState ~= BowState.States.AIMED then 
+        return 0 
+    end
     return time() - self.drawStartTime
 end
 

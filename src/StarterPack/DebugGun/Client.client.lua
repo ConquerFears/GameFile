@@ -61,12 +61,8 @@ local function OnInputBegan(input, gameHandled)
 			return
 		end
 	end
-	
-	-- Reset state if we're not in a valid state
-	if bowState.currentState ~= BowState.States.IDLE and bowState.currentState ~= BowState.States.COOLDOWN then
-		bowState:ForceReset()
-	end
 
+	bowState.isMouseDown = true  -- Set mouse state before transition
 	if bowState:TransitionTo(BowState.States.DRAWING) then
 		bowCamera:SetEnabled(true)
 		DrawSound:Play()
@@ -110,15 +106,15 @@ local function Update()
 	bowState:Update()
 	UpdateMouseIcon()
 
-	-- Update camera if aiming or transitioning
-	if bowState.isAiming or bowState.isTransitioningOut then
+	-- Update camera whenever it's enabled
+	if bowCamera.enabled then
 		local delta = UserInputService:GetMouseDelta()
 		bowCamera:UpdateAim(delta, UserInputService.MouseDeltaSensitivity)
 		bowCamera:Update(humanoidRootPart, Vector3.new())
 	end
 
-	-- Only show UI elements if actively drawing and not in cooldown
-	if mouse and bowState.currentState == BowState.States.DRAWING then
+	-- Show UI elements when mouse is down and not in cooldown
+	if mouse and bowState.isMouseDown and bowState.currentState ~= BowState.States.COOLDOWN then
 		local chargeTime = bowState:GetChargeTime()
 		local constants = bowState:GetConstants()
 		
@@ -143,18 +139,10 @@ end
 local function InitializeComponents()
 	mouse = Players.LocalPlayer:GetMouse()
 	bowUI:Initialize()
-	bowState:ForceReset()  -- Use ForceReset instead of Reset
+	bowState:ForceReset()
 	bowState.isToolEquipped = true
 	bowCamera:Reset()
-	
-	-- Ensure camera is properly initialized
-	task.spawn(function()
-		task.wait(0.1)  -- Small delay to ensure character is loaded
-		if Tool.Parent:IsA("Backpack") then return end
-		bowCamera:SaveState()
-		bowCamera:SetEnabled(false)  -- Ensure camera starts disabled
-	end)
-	
+	bowCamera:SaveState()  -- Save state immediately
 	UpdateMouseIcon()
 end
 
@@ -174,7 +162,6 @@ local inputEndedConnection
 local renderStepConnection
 
 Tool.Equipped:Connect(function()
-	task.wait(0.1)  -- Add small delay before initialization
 	InitializeComponents()
 	
 	-- Connect input handlers
