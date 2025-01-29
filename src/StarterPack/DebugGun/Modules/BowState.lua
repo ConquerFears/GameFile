@@ -4,6 +4,8 @@ local BowState = {}
 -- State machine states
 BowState.States = {
     IDLE = "idle",
+    NOCKING = "nocking",
+    IDLE_WITH_ARROW = "idleWithArrow",
     DRAWING = "drawing",
     AIMED = "aimed",
     RELEASING = "releasing",
@@ -15,6 +17,7 @@ local MIN_DRAW_TIME = 1.5
 local MAX_DRAW_TIME = 7.0
 local SHOT_COOLDOWN = 5.0
 local SHOT_FOLLOW_TIME = 0.8
+local NOCKING_TIME = 0.5
 
 -- Debug settings
 local DEBUG_MODE = false
@@ -27,8 +30,9 @@ function BowState.new()
     self.stateStartTime = 0
     self.drawStartTime = 0
     self.lastShotTime = 0
+    self.nockStartTime = 0
     
-    -- State flags (kept for compatibility)
+    -- State flags
     self.isMouseDown = false
     self.isReadyToShoot = false
     self.isCameraLocked = false
@@ -68,6 +72,15 @@ end
 
 function BowState:ApplyStateChanges(newState)
     local stateChanges = {
+        [BowState.States.NOCKING] = function()
+            self.nockStartTime = time()
+            self.isAiming = false
+            self.isCameraLocked = false
+        end,
+        [BowState.States.IDLE_WITH_ARROW] = function()
+            self.isAiming = false
+            self.isCameraLocked = false
+        end,
         [BowState.States.DRAWING] = function()
             self.isAiming = true
             self.isCameraLocked = false
@@ -97,6 +110,7 @@ function BowState:ApplyStateChanges(newState)
             self.isCameraLocked = false
             self.isReadyToShoot = false
             self.drawStartTime = 0
+            self.nockStartTime = 0
         end
     }
 
@@ -130,9 +144,13 @@ function BowState:CanTransitionTo(newState)
     end
     
     -- State-specific checks
-    if newState == BowState.States.DRAWING then
-        return (self.currentState == BowState.States.IDLE or self.currentState == BowState.States.COOLDOWN) 
-            and not self.isCameraLocked
+    if newState == BowState.States.NOCKING then
+        return self.currentState == BowState.States.IDLE
+    elseif newState == BowState.States.IDLE_WITH_ARROW then
+        return self.currentState == BowState.States.NOCKING and 
+               (currentTime - self.nockStartTime >= NOCKING_TIME)
+    elseif newState == BowState.States.DRAWING then
+        return self.currentState == BowState.States.IDLE_WITH_ARROW and not self.isCameraLocked
     elseif newState == BowState.States.AIMED then
         return self.currentState == BowState.States.DRAWING
     elseif newState == BowState.States.RELEASING then

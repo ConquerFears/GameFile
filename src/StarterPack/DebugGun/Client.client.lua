@@ -9,12 +9,16 @@ local RunService = game:GetService("RunService")
 local BowCamera = require(script.Parent.Modules.BowCamera)
 local BowUI = require(script.Parent.Modules.BowUI)
 local BowState = require(script.Parent.Modules.BowState)
+local BowProjectiles = require(script.Parent.Modules.BowProjectiles)
+local BowAnimations = require(script.Parent.Modules.BowAnimations)
 
 -- References
 local Tool = script.Parent
-local Handle = Tool:WaitForChild("Handle1")
+local Handle1 = Tool:WaitForChild("Handle1")
+local Bow = Handle1:WaitForChild("Bow")
+local DrawSound = Bow:WaitForChild("Draw")
+local FireSound = Bow:WaitForChild("Fire")
 local MouseEvent = Tool:WaitForChild("MouseEvent")
-local DrawSound = Handle:WaitForChild("Draw")
 
 -- Different cursor states
 local CURSOR_STATES = {
@@ -29,7 +33,19 @@ local CURSOR_STATES = {
 local bowCamera = BowCamera.new()
 local bowUI = BowUI.new()
 local bowState = BowState.new()
+local bowProjectiles
+local bowAnimations
 local mouse = nil
+
+-- Variables
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local Mouse = LocalPlayer:GetMouse()
+
+-- Constants
+local MOUSE_BUTTON1 = Enum.UserInputType.MouseButton1
+local CAMERA_SENSITIVITY = 0.5
 
 -- Update mouse icon based on state
 local function UpdateMouseIcon()
@@ -59,148 +75,126 @@ local function UpdateMouseIcon()
 end
 
 -- Input handlers
-local function OnInputBegan(input, gameHandled)
-	if gameHandled then return end
-	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-	if not mouse then return end
+local function handleInput(input, gameProcessed)
+	if gameProcessed then return end
 	if not bowState:IsToolEquipped() then return end
 	
-	-- Check if we're in cooldown
-	if bowState.currentState == BowState.States.COOLDOWN then
-		local timeLeft = bowState:GetConstants().SHOT_COOLDOWN - (time() - bowState.lastShotTime)
-		if timeLeft > 0 then
-			return
+	if input.UserInputType == MOUSE_BUTTON1 then
+		if input.UserInputState == Enum.UserInputState.Begin then
+			bowState.isMouseDown = true
+			
+			if bowState.currentState == BowState.States.IDLE then
+				bowState:TransitionTo(BowState.States.NOCKING)
+				DrawSound:Play()  -- Play draw sound when starting to nock
+			end
+		elseif input.UserInputState == Enum.UserInputState.End then
+			bowState.isMouseDown = false
+			
+			if bowState.currentState == BowState.States.AIMED then
+				bowState:TransitionTo(BowState.States.RELEASING)
+				DrawSound:Stop()  -- Stop draw sound
+				FireSound:Play()  -- Play fire sound
+			else
+				DrawSound:Stop()  -- Stop draw sound if released early
+			end
 		end
 	end
-
-	bowState.isMouseDown = true  -- Set mouse state before transition
-	if bowState:TransitionTo(BowState.States.DRAWING) then
-		bowCamera:SetEnabled(true)
-		DrawSound:Play()
-		UpdateMouseIcon()
-	end
-end
-
-local function OnInputEnded(input, gameHandled)
-	if gameHandled then return end
-	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-	if not mouse then return end
-
-	if bowState.isReadyToShoot and bowState.currentState == BowState.States.AIMED then
-		local power = bowState:CalculateChargePower()
-		MouseEvent:FireServer(mouse.Hit.Position, power)
-		bowCamera:SetEnabled(false)  -- Disable camera before state transition
-		bowState:TransitionTo(BowState.States.RELEASING)
-		bowUI:Reset()
-	else
-		bowCamera:SetEnabled(false)  -- Disable camera before state transition
-		bowState:TransitionTo(BowState.States.IDLE)
-		bowUI:Reset()
-	end
-
-	DrawSound:Stop()
-	UpdateMouseIcon()
 end
 
 -- Main update loop
-local function Update()
-	local player = Players.LocalPlayer
-	if not player then return end
-
-	local character = player.Character
-	if not character then return end
-
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-	if not humanoidRootPart then return end
-
-	-- Update state
+local function onUpdate()
+	if not bowState:IsToolEquipped() then return end
+	
+	-- Update state machine
 	bowState:Update()
-	UpdateMouseIcon()
-
-	-- Always update camera to handle transitions
-	local delta = UserInputService:GetMouseDelta()
-	if bowCamera.enabled then
-		bowCamera:UpdateAim(delta, UserInputService.MouseDeltaSensitivity)
+	
+	-- Get current state info
+	local currentState = bowState.currentState
+	local chargeTime = bowState:GetChargeTime()
+	local constants = bowState:GetConstants()
+	
+	-- Update camera
+	if currentState == BowState.States.DRAWING or 
+	   currentState == BowState.States.AIMED then
+		local delta = UserInputService:GetMouseDelta() * CAMERA_SENSITIVITY
+		bowCamera:UpdateAim(delta, 1)
 	end
-	bowCamera:Update(humanoidRootPart, Vector3.new())
-
-	-- Show UI elements when mouse is down and not in cooldown
-	if mouse and bowState.isMouseDown and bowState.currentState ~= BowState.States.COOLDOWN then
-		local chargeTime = bowState:GetChargeTime()
-		local constants = bowState:GetConstants()
-		
-		bowUI:UpdateChargeBar(
-			chargeTime,
-			constants.MIN_DRAW_TIME,
-			constants.MAX_DRAW_TIME,
-			Vector2.new(mouse.X, mouse.Y)
-		)
-		
-		bowUI:UpdateBrackets(
-			Vector2.new(mouse.X, mouse.Y),
-			chargeTime,
-			constants.MIN_DRAW_TIME,
-			constants.MAX_DRAW_TIME,
-			0.75
-		)
+	
+	-- Update UI
+	bowUI:UpdateChargeBar(chargeTime, constants.MIN_DRAW_TIME, constants.MAX_DRAW_TIME, Mouse)
+	bowUI:UpdateBrackets(Mouse, chargeTime, constants.MIN_DRAW_TIME, constants.MAX_DRAW_TIME, 1)
+	bowUI:UpdateVignette(chargeTime, constants.MIN_DRAW_TIME, constants.MAX_DRAW_TIME)
+	
+	-- Update animations
+	if bowAnimations then
+		bowAnimations:UpdateDrawing(chargeTime, constants.MIN_DRAW_TIME)
+	end
+	
+	-- Update camera position
+	local rootPart = Character:FindFirstChild("HumanoidRootPart")
+	if rootPart then
+		bowCamera:Update(rootPart)
 	end
 end
 
 -- Equipment handlers
-local function InitializeComponents()
-	mouse = Players.LocalPlayer:GetMouse()
-	bowUI:Initialize()
-	
-	-- Check if we were in cooldown before
-	local wasInCooldown = bowState.currentState == BowState.States.COOLDOWN
-	local previousLastShotTime = bowState.lastShotTime
-	
-	bowState:ForceReset()
+local function onEquipped()
 	bowState.isToolEquipped = true
+	bowCamera:SetEnabled(true)
 	
-	-- Restore cooldown state if necessary
-	if wasInCooldown and (time() - previousLastShotTime) < bowState:GetConstants().SHOT_COOLDOWN then
-		bowState.currentState = BowState.States.COOLDOWN
-		bowState.lastShotTime = previousLastShotTime
+	-- Initialize projectiles if needed
+	if not bowProjectiles then
+		bowProjectiles = BowProjectiles.new(Tool)
 	end
 	
-	bowCamera:Reset()
-	bowCamera:SaveState()
+	-- Initialize animations
+	if not bowAnimations then
+		bowAnimations = BowAnimations.new(Tool)
+	end
+	bowAnimations:Initialize()
+	bowAnimations:SetupLeftGrip(Character)
 	
-	-- Set initial cursor state
-	UpdateMouseIcon()
+	-- Connect input handling
+	UserInputService.InputBegan:Connect(handleInput)
+	UserInputService.InputEnded:Connect(handleInput)
+	RunService.RenderStepped:Connect(onUpdate)
 end
 
-local function CleanupComponents()
-	UserInputService.MouseIconEnabled = true
-	mouse.Icon = CURSOR_STATES.DEFAULT
-	
-	-- Ensure camera is disabled before state changes
-	bowCamera:SetEnabled(false)
+local function onUnequipped()
 	bowState.isToolEquipped = false
+	bowState:Reset()
+	bowCamera:SetEnabled(false)
 	bowUI:Reset()
-	bowUI:Cleanup()
+	
+	if bowAnimations then
+		bowAnimations:Cleanup()
+	end
 end
 
--- Connect input handlers
-local inputBeganConnection
-local inputEndedConnection
-local renderStepConnection
-
-Tool.Equipped:Connect(function()
-	InitializeComponents()
-	
-	-- Connect input handlers
-	inputBeganConnection = UserInputService.InputBegan:Connect(OnInputBegan)
-	inputEndedConnection = UserInputService.InputEnded:Connect(OnInputEnded)
-	renderStepConnection = RunService:BindToRenderStep("BowUpdate", Enum.RenderPriority.Camera.Value + 1, Update)
+-- State change handling
+bowState.stateChanged:Connect(function(transition)
+	if bowAnimations then
+		bowAnimations:HandleStateChange(transition.to, BowState.States)
+	end
 end)
 
-Tool.Unequipped:Connect(function()
-	CleanupComponents()
+-- Connect tool events
+Tool.Equipped:Connect(onEquipped)
+Tool.Unequipped:Connect(onUnequipped)
+
+-- Setup character handling
+local function onCharacterAdded(newCharacter)
+	Character = newCharacter
+	Humanoid = Character:WaitForChild("Humanoid")
 	
-	-- Disconnect handlers
-	if inputBeganConnection then inputBeganConnection:Disconnect() end
-	if inputEndedConnection then inputEndedConnection:Disconnect() end
-	if renderStepConnection then RunService:UnbindFromRenderStep("BowUpdate") end
-end)
+	-- Reset state
+	bowState:Reset()
+	bowCamera:Reset()
+	bowUI:Reset()
+	
+	if bowAnimations then
+		bowAnimations:Cleanup()
+	end
+end
+
+LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
