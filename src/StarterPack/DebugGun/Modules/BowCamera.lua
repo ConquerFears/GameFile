@@ -158,8 +158,12 @@ function BowCamera:SetEnabled(enabled)
         self:SaveState()
         targetFOV = AIM_FOV
     else
-        self:RestoreState()
-        targetFOV = DEFAULT_FOV
+        -- Only restore camera if we were previously enabled
+        if self.enabled then
+            self.transitioning = true
+            self.transitionStart = time()
+            targetFOV = DEFAULT_FOV
+        end
     end
 end
 
@@ -185,7 +189,19 @@ function BowCamera:Reset()
 end
 
 function BowCamera:Cleanup()
-    self:Reset()
+    -- Only restore camera if we were enabled
+    if self.enabled then
+        self:RestoreState()
+    end
+    self.enabled = false
+    self.transitioning = false
+    currentYaw = 0
+    currentPitch = 0
+    currentFOV = DEFAULT_FOV
+    targetFOV = DEFAULT_FOV
+    Camera.FieldOfView = DEFAULT_FOV
+    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    UserInputService.MouseIconEnabled = true
 end
 
 return BowCamera 

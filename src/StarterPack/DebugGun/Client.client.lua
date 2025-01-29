@@ -20,7 +20,7 @@ local DrawSound = Handle:WaitForChild("Draw")
 local CURSOR_STATES = {
 	DEFAULT = "",  -- Empty string means default system cursor
 	IDLE = "rbxassetid://140530585218698",  -- Normal dot cursor
-	COOLDOWN = "rbxassetid://135877679054660",  -- Gray dot curso
+	COOLDOWN = "rbxassetid://135877679054660",  -- Gray dot cursor
 	DRAWING = "rbxassetid://140530585218698",  -- Same as idle dot cursor
 	READY = "rbxassetid://140530585218698"  -- Same as idle dot cursor
 }
@@ -42,8 +42,9 @@ local function UpdateMouseIcon()
 		return
 	end
 
-	-- Handle different states
-	if bowState.currentState == BowState.States.COOLDOWN then
+	-- Check cooldown first
+	if bowState.currentState == BowState.States.COOLDOWN or 
+	   (time() - bowState.lastShotTime < bowState:GetConstants().SHOT_COOLDOWN) then
 		mouse.Icon = CURSOR_STATES.COOLDOWN
 	elseif bowState.isMouseDown then
 		if bowState.isReadyToShoot then
@@ -151,26 +152,34 @@ end
 local function InitializeComponents()
 	mouse = Players.LocalPlayer:GetMouse()
 	bowUI:Initialize()
+	
+	-- Check if we were in cooldown before
+	local wasInCooldown = bowState.currentState == BowState.States.COOLDOWN
+	local previousLastShotTime = bowState.lastShotTime
+	
 	bowState:ForceReset()
 	bowState.isToolEquipped = true
+	
+	-- Restore cooldown state if necessary
+	if wasInCooldown and (time() - previousLastShotTime) < bowState:GetConstants().SHOT_COOLDOWN then
+		bowState.currentState = BowState.States.COOLDOWN
+		bowState.lastShotTime = previousLastShotTime
+	end
+	
 	bowCamera:Reset()
 	bowCamera:SaveState()
 	
 	-- Set initial cursor state
-	if bowState.currentState == BowState.States.COOLDOWN then
-		mouse.Icon = CURSOR_STATES.COOLDOWN
-	else
-		mouse.Icon = CURSOR_STATES.IDLE
-	end
-	UserInputService.MouseIconEnabled = true
+	UpdateMouseIcon()
 end
 
 local function CleanupComponents()
 	UserInputService.MouseIconEnabled = true
-	mouse.Icon = CURSOR_STATES.DEFAULT  -- Reset to system default
-	bowState:Reset()
+	mouse.Icon = CURSOR_STATES.DEFAULT
+	
+	-- Don't reset state on cleanup to preserve cooldown
 	bowState.isToolEquipped = false
-	bowCamera:Cleanup()
+	bowCamera:SetEnabled(false)  -- Just disable camera without full cleanup
 	bowUI:Reset()
 	bowUI:Cleanup()
 end
