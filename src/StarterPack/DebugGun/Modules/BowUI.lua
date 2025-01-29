@@ -29,6 +29,13 @@ function BowUI:Initialize()
     self:CreateBrackets()
     self:CreateChargeBar()
     self:CreateVignette()
+    
+    -- Hide UI elements initially
+    self.chargeBarContainer.Visible = false
+    for _, bracket in ipairs(self.brackets) do
+        bracket.Visible = false
+    end
+    self.vignette.BackgroundTransparency = 1
 end
 
 function BowUI:CreateScreenGui()
@@ -120,7 +127,7 @@ end
 
 function BowUI:UpdateChargeBar(chargeTime, minDrawTime, maxDrawTime, mousePosition)
     if not self.initialized then return end
-    if not mousePosition then
+    if not mousePosition or chargeTime <= 0 then
         self.chargeBarContainer.Visible = false
         return
     end
@@ -206,6 +213,18 @@ function BowUI:UpdateVignette(chargeTime, minDrawTime, maxDrawTime)
     local overcharge = math.clamp((chargeTime - minDrawTime) / (maxDrawTime - minDrawTime), 0, 1)
     local vignetteAlpha = overcharge * SCREEN_EFFECT_INTENSITY
     self.vignette.BackgroundTransparency = 1 - vignetteAlpha
+end
+
+function BowUI:Reset()
+    if not self.initialized then return end
+    
+    -- Hide all UI elements
+    self.chargeBarContainer.Visible = false
+    for _, bracket in ipairs(self.brackets) do
+        bracket.Visible = false
+    end
+    self.vignette.BackgroundTransparency = 1
+    self.currentBracketSpread = BRACKET_SPREAD
 end
 
 function BowUI:Cleanup()

@@ -57,6 +57,7 @@ end
 function BowState:TransitionTo(newState)
     if not self:CanTransitionTo(newState) then return false end
     
+    local previousState = self.currentState
     self.currentState = newState
     self.stateStartTime = time()
     
@@ -72,6 +73,7 @@ function BowState:TransitionTo(newState)
         self.isTransitioningOut = false
         self.isCameraLocked = true
         self.lastShotTime = time()
+        self.isReadyToShoot = false  -- Reset ready state
     elseif newState == BowState.States.COOLDOWN then
         self.isAiming = false
         self.isTransitioningOut = true
@@ -81,6 +83,7 @@ function BowState:TransitionTo(newState)
         self.isTransitioningOut = false
         self.isCameraLocked = false
         self.isReadyToShoot = false
+        self.drawStartTime = 0
     end
     
     return true
@@ -143,6 +146,18 @@ function BowState:GetConstants()
         SHOT_COOLDOWN = SHOT_COOLDOWN,
         SHOT_FOLLOW_TIME = SHOT_FOLLOW_TIME
     }
+end
+
+function BowState:Reset()
+    self.currentState = BowState.States.IDLE
+    self.stateStartTime = 0
+    self.drawStartTime = 0
+    self.lastShotTime = 0
+    self.isMouseDown = false
+    self.isReadyToShoot = false
+    self.isCameraLocked = false
+    self.isAiming = false
+    self.isTransitioningOut = false
 end
 
 return BowState 

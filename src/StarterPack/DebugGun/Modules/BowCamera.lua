@@ -67,9 +67,13 @@ function BowCamera:RestoreState()
         targetFOV = DEFAULT_FOV
         
         -- Restore mouse state immediately
-        UserInputService.MouseBehavior = previousMouseBehavior
+        UserInputService.MouseBehavior = Enum.MouseBehavior.Default
         UserInputService.MouseIconEnabled = true
         UserInputService.MouseDeltaSensitivity = previousSensitivity
+        
+        -- Reset camera state
+        Camera.CameraType = previousCameraType
+        Camera.CameraSubject = previousCameraSubject
     end
 end
 
@@ -80,8 +84,6 @@ function BowCamera:UpdateTransition()
     
     if alpha >= 1 then
         self.transitioning = false
-        Camera.CameraType = previousCameraType
-        Camera.CameraSubject = previousCameraSubject
         Camera.FieldOfView = DEFAULT_FOV
         return
     end
@@ -165,12 +167,25 @@ function BowCamera:GetLookVector()
     return CFrame.fromEulerAnglesYXZ(-currentPitch, currentYaw, 0).LookVector
 end
 
-function BowCamera:Cleanup()
+function BowCamera:Reset()
     self:SetEnabled(false)
     self.transitioning = false
+    currentYaw = 0
+    currentPitch = 0
+    currentFOV = DEFAULT_FOV
+    targetFOV = DEFAULT_FOV
+    Camera.FieldOfView = DEFAULT_FOV
     UserInputService.MouseBehavior = Enum.MouseBehavior.Default
     UserInputService.MouseIconEnabled = true
-    Camera.FieldOfView = DEFAULT_FOV
+    
+    if previousCameraType then
+        Camera.CameraType = previousCameraType
+        Camera.CameraSubject = previousCameraSubject
+    end
+end
+
+function BowCamera:Cleanup()
+    self:Reset()
 end
 
 return BowCamera 

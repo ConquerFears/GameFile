@@ -68,9 +68,11 @@ local function OnInputEnded(input, gameHandled)
 		local power = bowState:CalculateChargePower()
 		MouseEvent:FireServer(mouse.Hit.Position, power)
 		bowState:TransitionTo(BowState.States.RELEASING)
+		bowUI:Reset()  -- Reset UI immediately after shot
 	else
 		bowState:TransitionTo(BowState.States.IDLE)
 		bowCamera:SetEnabled(false)
+		bowUI:Reset()  -- Reset UI when canceling shot
 	end
 
 	bowState.isMouseDown = false
@@ -131,16 +133,19 @@ end
 -- Equipment handlers
 local function InitializeComponents()
 	mouse = Players.LocalPlayer:GetMouse()
-	bowUI:Initialize()  -- Initialize UI when equipped
+	bowUI:Initialize()
+	bowState:Reset()  -- Reset state on equip
 	bowState.isToolEquipped = true
+	bowCamera:Reset()  -- Reset camera on equip
 	UpdateMouseIcon()
 end
 
 local function CleanupComponents()
 	UserInputService.MouseIconEnabled = true
-	bowState:TransitionTo(BowState.States.IDLE)
+	bowState:Reset()
 	bowState.isToolEquipped = false
-	bowCamera:Cleanup()  -- Use new cleanup function
+	bowCamera:Reset()
+	bowUI:Reset()
 	bowUI:Cleanup()
 	UpdateMouseIcon()
 end
