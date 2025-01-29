@@ -18,10 +18,11 @@ local DrawSound = Handle:WaitForChild("Draw")
 
 -- Different cursor states
 local CURSOR_STATES = {
-	DEFAULT = "",
-	DRAWING = "rbxassetid://140530585218698",
-	READY = "rbxassetid://140530585218698",
-	COOLDOWN = "rbxassetid://140530585218698"  -- Added cooldown cursor state
+	DEFAULT = "",  -- Empty string means default system cursor
+	IDLE = "rbxassetid://140530585218698",  -- Normal dot cursor
+	COOLDOWN = "rbxassetid://104288534052915",  -- Gray dot curso
+	DRAWING = "rbxassetid://140530585218698",  -- Same as idle dot cursor
+	READY = "rbxassetid://140530585218698"  -- Same as idle dot cursor
 }
 
 -- Initialize components
@@ -32,8 +33,16 @@ local mouse = nil
 
 -- Update mouse icon based on state
 local function UpdateMouseIcon()
-	if not mouse or Tool.Parent:IsA("Backpack") then return end
+	if not mouse then return end
+	
+	-- If tool is in backpack or unequipped, use system default
+	if Tool.Parent:IsA("Backpack") or not bowState:IsToolEquipped() then
+		mouse.Icon = CURSOR_STATES.DEFAULT
+		UserInputService.MouseIconEnabled = true
+		return
+	end
 
+	-- Handle different states
 	if bowState.currentState == BowState.States.COOLDOWN then
 		mouse.Icon = CURSOR_STATES.COOLDOWN
 	elseif bowState.isMouseDown then
@@ -43,8 +52,9 @@ local function UpdateMouseIcon()
 			mouse.Icon = CURSOR_STATES.DRAWING
 		end
 	else
-		mouse.Icon = CURSOR_STATES.DEFAULT
+		mouse.Icon = CURSOR_STATES.IDLE
 	end
+	UserInputService.MouseIconEnabled = true
 end
 
 -- Input handlers
@@ -104,6 +114,8 @@ local function Update()
 
 	-- Update state
 	bowState:Update()
+	
+	-- Update cursor state
 	UpdateMouseIcon()
 
 	-- Update camera whenever it's enabled
@@ -142,18 +154,25 @@ local function InitializeComponents()
 	bowState:ForceReset()
 	bowState.isToolEquipped = true
 	bowCamera:Reset()
-	bowCamera:SaveState()  -- Save state immediately
-	UpdateMouseIcon()
+	bowCamera:SaveState()
+	
+	-- Set initial cursor state
+	if bowState.currentState == BowState.States.COOLDOWN then
+		mouse.Icon = CURSOR_STATES.COOLDOWN
+	else
+		mouse.Icon = CURSOR_STATES.IDLE
+	end
+	UserInputService.MouseIconEnabled = true
 end
 
 local function CleanupComponents()
 	UserInputService.MouseIconEnabled = true
+	mouse.Icon = CURSOR_STATES.DEFAULT  -- Reset to system default
 	bowState:Reset()
 	bowState.isToolEquipped = false
-	bowCamera:Cleanup()  -- Changed from Reset to Cleanup
+	bowCamera:Cleanup()
 	bowUI:Reset()
 	bowUI:Cleanup()
-	UpdateMouseIcon()
 end
 
 -- Connect input handlers
