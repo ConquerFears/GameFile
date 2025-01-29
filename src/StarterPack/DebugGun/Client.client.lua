@@ -16,8 +16,8 @@ local BowAnimations = require(script.Parent.Modules.BowAnimations)
 local Tool = script.Parent
 local Handle1 = Tool:WaitForChild("Handle1")
 local Bow = Handle1:WaitForChild("Bow")
-local DrawSound = Bow:WaitForChild("Draw")
-local FireSound = Bow:WaitForChild("Fire")
+local DrawSound = Handle1:WaitForChild("Draw")
+local FireSound = Handle1:WaitForChild("Fire")
 local MouseEvent = Tool:WaitForChild("MouseEvent")
 
 -- Different cursor states
