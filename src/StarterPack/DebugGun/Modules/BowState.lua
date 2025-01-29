@@ -240,16 +240,28 @@ function BowState:Update()
             self:TransitionTo(BowState.States.IDLE_WITH_ARROW)
         end
     elseif self.currentState == BowState.States.IDLE_WITH_ARROW then
+        -- Only transition to drawing if mouse is still held down
         if self.isMouseDown then
             self:TransitionTo(BowState.States.DRAWING)
-            self.drawStartTime = currentTime  -- Set draw start time when transitioning to drawing
+            self.drawStartTime = currentTime
         end
     elseif self.currentState == BowState.States.DRAWING then
+        if not self.isMouseDown then
+            -- If mouse released during draw, cancel back to idle
+            self:TransitionTo(BowState.States.IDLE)
+            return
+        end
+        
         local drawDuration = currentTime - self.drawStartTime
         self.isReadyToShoot = drawDuration >= MIN_DRAW_TIME
         
         if self.isReadyToShoot then
             self:TransitionTo(BowState.States.AIMED)
+        end
+    elseif self.currentState == BowState.States.AIMED then
+        if not self.isMouseDown then
+            -- Only release if we're fully drawn
+            self:TransitionTo(BowState.States.RELEASING)
         end
     elseif self.currentState == BowState.States.RELEASING then
         if stateDuration >= SHOT_FOLLOW_TIME then
@@ -264,13 +276,13 @@ end
 
 -- Keep existing utility methods
 function BowState:GetChargeTime()
-    if self.currentState ~= BowState.States.DRAWING and 
-       self.currentState ~= BowState.States.AIMED then 
-        return 0 
+    -- Only return charge time during drawing or aimed states
+    if self.currentState == BowState.States.DRAWING or 
+       self.currentState == BowState.States.AIMED then
+        if self.drawStartTime == 0 then return 0 end
+        return time() - self.drawStartTime
     end
-    
-    if self.drawStartTime == 0 then return 0 end
-    return time() - self.drawStartTime
+    return 0
 end
 
 function BowState:CalculateChargePower()

@@ -41,6 +41,7 @@ function BowAnimations:Initialize()
         self.tool.Grip.Enabled = false
     end
     
+    -- Set bow to be held by left hand
     self:LoadAnimations()
     
     self.initialized = true
@@ -93,6 +94,7 @@ function BowAnimations:SetupLeftGrip(character)
     self.leftGrip.Name = "LeftGrip"
     self.leftGrip.Part0 = leftHand
     self.leftGrip.Part1 = self.bowPart
+    -- Adjust grip to hold bow properly and keep it stationary
     self.leftGrip.C0 = CFrame.new(0, 0, 0.5) * CFrame.Angles(0, math.rad(90), 0)
     self.leftGrip.C1 = CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(-90), 0)
     self.leftGrip.Parent = leftHand
@@ -124,9 +126,9 @@ function BowAnimations:PlayAnimation(name, fadeTime)
     local anim = self.animations[name]
     if not anim.track.IsPlaying then
         anim.track:Play(fadeTime or 0.1)
-        -- For drawing animation, make sure it plays at full weight
+        -- For drawing animation, make sure it plays at full weight and proper priority
         if name == "drawing" then
-            anim.track.Priority = Enum.AnimationPriority.Action
+            anim.track.Priority = Enum.AnimationPriority.Action4  -- Highest priority
             anim.track:AdjustWeight(1)
         end
     end
@@ -148,9 +150,11 @@ function BowAnimations:UpdateDrawing(drawTime, minDrawTime)
     
     -- Update drawing animation
     if self.animations.drawing and self.animations.drawing.track.IsPlaying then
-        -- Instead of adjusting weight, adjust speed to control draw amount
-        self.animations.drawing.track:AdjustSpeed(0)  -- Freeze at current position
-        self.animations.drawing.track.TimePosition = drawProgress * self.animations.drawing.track.Length
+        -- Control animation progress based on draw time
+        self.animations.drawing.track:AdjustSpeed(0)  -- Freeze animation
+        -- Scale the animation position to match draw progress
+        local animLength = self.animations.drawing.track.Length
+        self.animations.drawing.track.TimePosition = drawProgress * animLength
     end
 end
 
@@ -163,16 +167,17 @@ function BowAnimations:HandleStateChange(newState, bowState)
     elseif newState == bowState.States.DRAWING then
         self:SetArrowVisibility(true)
         self:PlayAnimation("drawing", DRAW_BLEND_TIME)
-        -- Ensure drawing animation plays at full priority
+        -- Set highest priority to override default tool animations
         if self.animations.drawing then
-            self.animations.drawing.track.Priority = Enum.AnimationPriority.Action
+            self.animations.drawing.track.Priority = Enum.AnimationPriority.Action4
         end
     elseif newState == bowState.States.AIMED then
         self:SetArrowVisibility(true)
         -- Keep the drawing animation at full draw
         if self.animations.drawing then
-            self.animations.drawing.track:AdjustSpeed(0)  -- Freeze at full draw
+            self.animations.drawing.track:AdjustSpeed(0)
             self.animations.drawing.track.TimePosition = self.animations.drawing.track.Length
+            self.animations.drawing.track.Priority = Enum.AnimationPriority.Action4
         end
     elseif newState == bowState.States.RELEASING then
         self:SetArrowVisibility(false)
