@@ -3,7 +3,7 @@ local BowUI = {}
 -- Constants
 local BRACKET_SPREAD = 75
 local BRACKET_MIN_SPREAD = 12
-local BRACKET_IMAGE = "rbxassetid://3926307971"
+local BRACKET_IMAGE = "rbxassetid://132698696496946"
 local BRACKET_SIZE_X = 30
 local BRACKET_SIZE_Y = 20
 local BRACKET_TRANSPARENCY = 0.4

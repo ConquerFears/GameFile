@@ -35,6 +35,12 @@ function BowAnimations:Initialize()
     
     -- Setup initial states
     self.arrowPart.Transparency = 1
+    
+    -- Disable default grip animation
+    if self.tool:FindFirstChild("Grip") then
+        self.tool.Grip.Enabled = false
+    end
+    
     self:LoadAnimations()
     
     self.initialized = true
@@ -108,7 +114,7 @@ function BowAnimations:PlayAnimation(name, fadeTime)
     if not self.initialized then return end
     if not self.animations[name] then return end
     
-    -- Stop other animations
+    -- Stop other animations with proper fade time
     for animName, animData in pairs(self.animations) do
         if animName ~= name then
             animData.track:Stop(fadeTime or 0.1)
@@ -118,6 +124,11 @@ function BowAnimations:PlayAnimation(name, fadeTime)
     local anim = self.animations[name]
     if not anim.track.IsPlaying then
         anim.track:Play(fadeTime or 0.1)
+        -- For drawing animation, make sure it plays at full weight
+        if name == "drawing" then
+            anim.track.Priority = Enum.AnimationPriority.Action
+            anim.track:AdjustWeight(1)
+        end
     end
 end
 
@@ -135,9 +146,11 @@ function BowAnimations:UpdateDrawing(drawTime, minDrawTime)
     local drawProgress = math.clamp(drawTime / minDrawTime, 0, 1)
     self:UpdateBowString(drawProgress)
     
-    -- Update drawing animation weight if needed
+    -- Update drawing animation
     if self.animations.drawing and self.animations.drawing.track.IsPlaying then
-        self.animations.drawing.track:AdjustWeight(drawProgress)
+        -- Instead of adjusting weight, adjust speed to control draw amount
+        self.animations.drawing.track:AdjustSpeed(0)  -- Freeze at current position
+        self.animations.drawing.track.TimePosition = drawProgress * self.animations.drawing.track.Length
     end
 end
 
@@ -147,33 +160,28 @@ function BowAnimations:HandleStateChange(newState, bowState)
     if newState == bowState.States.IDLE then
         self:SetArrowVisibility(false)
         self:PlayAnimation("idle", DRAW_BLEND_TIME)
-        if self.impactParticle then
-            self.impactParticle.Enabled = false
-        end
     elseif newState == bowState.States.DRAWING then
         self:SetArrowVisibility(true)
         self:PlayAnimation("drawing", DRAW_BLEND_TIME)
-        if self.impactParticle then
-            self.impactParticle.Enabled = false
+        -- Ensure drawing animation plays at full priority
+        if self.animations.drawing then
+            self.animations.drawing.track.Priority = Enum.AnimationPriority.Action
         end
     elseif newState == bowState.States.AIMED then
         self:SetArrowVisibility(true)
-        -- Keep the drawing animation playing but fully weighted
+        -- Keep the drawing animation at full draw
         if self.animations.drawing then
-            self.animations.drawing.track:AdjustWeight(1)
+            self.animations.drawing.track:AdjustSpeed(0)  -- Freeze at full draw
+            self.animations.drawing.track.TimePosition = self.animations.drawing.track.Length
         end
     elseif newState == bowState.States.RELEASING then
         self:SetArrowVisibility(false)
         self:PlayAnimation("release", RELEASE_BLEND_TIME)
-        -- Impact particle will be handled by BowProjectiles module
     elseif newState == bowState.States.NOCKING then
         self:PlayAnimation("nock", NOCK_BLEND_TIME)
     elseif newState == bowState.States.IDLE_WITH_ARROW then
         self:SetArrowVisibility(true)
         self:PlayAnimation("idleWithArrow", NOCK_BLEND_TIME)
-        if self.impactParticle then
-            self.impactParticle.Enabled = false
-        end
     end
     
     self.currentState = newState

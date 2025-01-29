@@ -242,6 +242,7 @@ function BowState:Update()
     elseif self.currentState == BowState.States.IDLE_WITH_ARROW then
         if self.isMouseDown then
             self:TransitionTo(BowState.States.DRAWING)
+            self.drawStartTime = currentTime  -- Set draw start time when transitioning to drawing
         end
     elseif self.currentState == BowState.States.DRAWING then
         local drawDuration = currentTime - self.drawStartTime
@@ -267,6 +268,8 @@ function BowState:GetChargeTime()
        self.currentState ~= BowState.States.AIMED then 
         return 0 
     end
+    
+    if self.drawStartTime == 0 then return 0 end
     return time() - self.drawStartTime
 end
 
