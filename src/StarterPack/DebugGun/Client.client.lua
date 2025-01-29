@@ -16,8 +16,8 @@ local BowAnimations = require(script.Parent.Modules.BowAnimations)
 local Tool = script.Parent
 local Handle1 = Tool:WaitForChild("Handle1")
 local Bow = Handle1:WaitForChild("Bow")
-local DrawSound = Handle1:WaitForChild("Draw")
-local FireSound = Handle1:WaitForChild("Fire")
+local DrawSound = Bow:WaitForChild("Draw")
+local FireSound = Bow:WaitForChild("Fire")
 local MouseEvent = Tool:WaitForChild("MouseEvent")
 
 -- Different cursor states
@@ -29,13 +29,12 @@ local CURSOR_STATES = {
 	READY = "rbxassetid://140530585218698"  -- Same as idle dot cursor
 }
 
--- Initialize components
+-- Module instances
 local bowCamera = BowCamera.new()
 local bowUI = BowUI.new()
 local bowState = BowState.new()
 local bowProjectiles
 local bowAnimations
-local mouse = nil
 
 -- Variables
 local LocalPlayer = Players.LocalPlayer
@@ -43,17 +42,23 @@ local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 local Mouse = LocalPlayer:GetMouse()
 
+-- Connections
+local inputBeganConn
+local inputEndedConn
+local updateConn
+local stateChangedConn
+
 -- Constants
 local MOUSE_BUTTON1 = Enum.UserInputType.MouseButton1
 local CAMERA_SENSITIVITY = 0.5
 
 -- Update mouse icon based on state
 local function UpdateMouseIcon()
-	if not mouse then return end
+	if not Mouse then return end
 	
 	-- If tool is in backpack or unequipped, use system default
 	if Tool.Parent:IsA("Backpack") or not bowState:IsToolEquipped() then
-		mouse.Icon = CURSOR_STATES.DEFAULT
+		Mouse.Icon = CURSOR_STATES.DEFAULT
 		UserInputService.MouseIconEnabled = true
 		return
 	end
@@ -61,15 +66,15 @@ local function UpdateMouseIcon()
 	-- Check cooldown first
 	if bowState.currentState == BowState.States.COOLDOWN or 
 	   (time() - bowState.lastShotTime < bowState:GetConstants().SHOT_COOLDOWN) then
-		mouse.Icon = CURSOR_STATES.COOLDOWN
+		Mouse.Icon = CURSOR_STATES.COOLDOWN
 	elseif bowState.isMouseDown then
 		if bowState.isReadyToShoot then
-			mouse.Icon = CURSOR_STATES.READY
+			Mouse.Icon = CURSOR_STATES.READY
 		else
-			mouse.Icon = CURSOR_STATES.DRAWING
+			Mouse.Icon = CURSOR_STATES.DRAWING
 		end
 	else
-		mouse.Icon = CURSOR_STATES.IDLE
+		Mouse.Icon = CURSOR_STATES.IDLE
 	end
 	UserInputService.MouseIconEnabled = true
 end
@@ -81,21 +86,24 @@ local function handleInput(input, gameProcessed)
 	
 	if input.UserInputType == MOUSE_BUTTON1 then
 		if input.UserInputState == Enum.UserInputState.Begin then
-			bowState.isMouseDown = true
-			
 			if bowState.currentState == BowState.States.IDLE then
 				bowState:TransitionTo(BowState.States.NOCKING)
-				DrawSound:Play()  -- Play draw sound when starting to nock
+				DrawSound:Play()
 			end
 		elseif input.UserInputState == Enum.UserInputState.End then
-			bowState.isMouseDown = false
-			
 			if bowState.currentState == BowState.States.AIMED then
 				bowState:TransitionTo(BowState.States.RELEASING)
-				DrawSound:Stop()  -- Stop draw sound
-				FireSound:Play()  -- Play fire sound
-			else
-				DrawSound:Stop()  -- Stop draw sound if released early
+				DrawSound:Stop()
+				FireSound:Play()
+				
+				-- Fire projectile
+				if bowProjectiles then
+					local power = bowState:CalculateChargePower()
+					MouseEvent:FireServer(Mouse.Hit.Position, power)
+				end
+			elseif bowState.currentState == BowState.States.DRAWING then
+				bowState:TransitionTo(BowState.States.IDLE)
+				DrawSound:Stop()
 			end
 		end
 	end
@@ -135,10 +143,27 @@ local function onUpdate()
 	if bowAnimations then
 		bowAnimations:UpdateDrawing(chargeTime, constants.MIN_DRAW_TIME)
 	end
+	
+	-- Update mouse icon
+	UpdateMouseIcon()
+end
+
+-- Clean up all connections
+local function cleanupConnections()
+	if inputBeganConn then inputBeganConn:Disconnect() end
+	if inputEndedConn then inputEndedConn:Disconnect() end
+	if updateConn then updateConn:Disconnect() end
+	if stateChangedConn then stateChangedConn:Disconnect() end
+	
+	inputBeganConn = nil
+	inputEndedConn = nil
+	updateConn = nil
+	stateChangedConn = nil
 end
 
 -- Equipment handlers
 local function onEquipped()
+	Mouse = LocalPlayer:GetMouse()
 	bowState.isToolEquipped = true
 	
 	-- Initialize projectiles if needed
@@ -153,10 +178,28 @@ local function onEquipped()
 	bowAnimations:Initialize()
 	bowAnimations:SetupLeftGrip(Character)
 	
-	-- Connect input handling
-	UserInputService.InputBegan:Connect(handleInput)
-	UserInputService.InputEnded:Connect(handleInput)
-	RunService.RenderStepped:Connect(onUpdate)
+	-- Set up all connections
+	cleanupConnections()
+	
+	inputBeganConn = UserInputService.InputBegan:Connect(handleInput)
+	inputEndedConn = UserInputService.InputEnded:Connect(handleInput)
+	updateConn = RunService.RenderStepped:Connect(onUpdate)
+	
+	stateChangedConn = bowState.stateChanged:Connect(function(transition)
+		if bowAnimations then
+			bowAnimations:HandleStateChange(transition.to, BowState)
+		end
+		
+		-- Handle camera based on state
+		if transition.to == BowState.States.DRAWING or 
+		   transition.to == BowState.States.AIMED then
+			bowCamera:SetEnabled(true)
+		elseif transition.to == BowState.States.RELEASING or
+			   transition.to == BowState.States.IDLE or
+			   transition.to == BowState.States.COOLDOWN then
+			bowCamera:SetEnabled(false)
+		end
+	end)
 end
 
 local function onUnequipped()
@@ -168,28 +211,9 @@ local function onUnequipped()
 	if bowAnimations then
 		bowAnimations:Cleanup()
 	end
-end
-
--- State change handling
-bowState.stateChanged:Connect(function(transition)
-	if bowAnimations then
-		bowAnimations:HandleStateChange(transition.to, BowState)
-	end
 	
-	-- Handle camera based on state
-	if transition.to == BowState.States.DRAWING or 
-	   transition.to == BowState.States.AIMED then
-		bowCamera:SetEnabled(true)
-	elseif transition.to == BowState.States.RELEASING or
-		   transition.to == BowState.States.IDLE or
-		   transition.to == BowState.States.COOLDOWN then
-		bowCamera:SetEnabled(false)
-	end
-end)
-
--- Connect tool events
-Tool.Equipped:Connect(onEquipped)
-Tool.Unequipped:Connect(onUnequipped)
+	cleanupConnections()
+end
 
 -- Setup character handling
 local function onCharacterAdded(newCharacter)
@@ -204,6 +228,11 @@ local function onCharacterAdded(newCharacter)
 	if bowAnimations then
 		bowAnimations:Cleanup()
 	end
+	
+	cleanupConnections()
 end
 
+-- Connect tool events
+Tool.Equipped:Connect(onEquipped)
+Tool.Unequipped:Connect(onUnequipped)
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)

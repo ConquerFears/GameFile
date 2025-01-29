@@ -76,19 +76,23 @@ function BowState:ApplyStateChanges(newState)
             self.nockStartTime = time()
             self.isAiming = false
             self.isCameraLocked = false
+            self.isMouseDown = true
         end,
         [BowState.States.IDLE_WITH_ARROW] = function()
             self.isAiming = false
             self.isCameraLocked = false
+            self.isMouseDown = true
         end,
         [BowState.States.DRAWING] = function()
             self.isAiming = true
             self.isCameraLocked = false
             self.drawStartTime = time()
+            self.isMouseDown = true
         end,
         [BowState.States.AIMED] = function()
             self.isAiming = true
             self.isCameraLocked = false
+            self.isMouseDown = true
         end,
         [BowState.States.RELEASING] = function()
             self.isAiming = false
@@ -111,6 +115,7 @@ function BowState:ApplyStateChanges(newState)
             self.isReadyToShoot = false
             self.drawStartTime = 0
             self.nockStartTime = 0
+            self.isMouseDown = false
         end
     }
 
@@ -230,7 +235,15 @@ function BowState:Update()
     local currentTime = time()
     local stateDuration = currentTime - self.stateStartTime
     
-    if self.currentState == BowState.States.DRAWING then
+    if self.currentState == BowState.States.NOCKING then
+        if stateDuration >= NOCKING_TIME then
+            self:TransitionTo(BowState.States.IDLE_WITH_ARROW)
+        end
+    elseif self.currentState == BowState.States.IDLE_WITH_ARROW then
+        if self.isMouseDown then
+            self:TransitionTo(BowState.States.DRAWING)
+        end
+    elseif self.currentState == BowState.States.DRAWING then
         local drawDuration = currentTime - self.drawStartTime
         self.isReadyToShoot = drawDuration >= MIN_DRAW_TIME
         
