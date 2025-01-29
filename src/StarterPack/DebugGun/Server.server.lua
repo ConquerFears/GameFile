@@ -361,3 +361,30 @@ if (MAX_BULLET_SPREAD_ANGLE > 180) then
 	warn("Warning: MAX_BULLET_SPREAD_ANGLE is over 180! This will not pose any extra angular randomization. The value has been changed to 180 as a result of this.")
 	MAX_BULLET_SPREAD_ANGLE = 180
 end
+
+-- Modules
+local BowProjectiles = require(script.Parent.Modules.BowProjectiles)
+
+-- References
+local Tool = script.Parent
+local MouseEvent = Tool:WaitForChild("MouseEvent")
+
+-- Initialize projectile system
+local projectiles = BowProjectiles.new(Tool)
+
+-- Handle equipped state
+Tool.Equipped:Connect(function()
+    local char = Tool.Parent
+    if char then
+        projectiles:UpdateFilterList(char)
+    end
+end)
+
+-- Handle remote event
+MouseEvent.OnServerEvent:Connect(function(player, targetPos, power)
+    if not player.Character then return end
+    if Tool.Parent ~= player.Character then return end
+
+    local direction = (targetPos - projectiles.firePointObject.WorldPosition).Unit
+    projectiles:Fire(direction, power)
+end)
