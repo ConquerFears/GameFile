@@ -49,12 +49,14 @@ local function OnInputBegan(input, gameHandled)
 	if gameHandled then return end
 	if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
 	if not mouse then return end
+	if not bowState:IsToolEquipped() then return end
 
 	bowState.isMouseDown = true
-	bowState:TransitionTo(BowState.States.DRAWING)
-	bowCamera:SetEnabled(true)  -- Enable camera when starting to draw
-	DrawSound:Play()
-	UpdateMouseIcon()
+	if bowState:TransitionTo(BowState.States.DRAWING) then
+		bowCamera:SetEnabled(true)
+		DrawSound:Play()
+		UpdateMouseIcon()
+	end
 end
 
 local function OnInputEnded(input, gameHandled)
@@ -68,7 +70,7 @@ local function OnInputEnded(input, gameHandled)
 		bowState:TransitionTo(BowState.States.RELEASING)
 	else
 		bowState:TransitionTo(BowState.States.IDLE)
-		bowCamera:SetEnabled(false)  -- Disable camera if shot wasn't fired
+		bowCamera:SetEnabled(false)
 	end
 
 	bowState.isMouseDown = false
@@ -138,7 +140,7 @@ local function CleanupComponents()
 	UserInputService.MouseIconEnabled = true
 	bowState:TransitionTo(BowState.States.IDLE)
 	bowState.isToolEquipped = false
-	bowCamera:SetEnabled(false)
+	bowCamera:Cleanup()  -- Use new cleanup function
 	bowUI:Cleanup()
 	UpdateMouseIcon()
 end
