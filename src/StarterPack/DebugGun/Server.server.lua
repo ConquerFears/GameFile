@@ -1,4 +1,4 @@
--- REMEMBER: THERE'S RESOURCES TO HELP YOU AT https://etithespirit.github.io/FastCastAPIDocs
+-- Path: src/StarterPack/DebugGun/Server.server.lua
 
 -- Constants
 local DEBUG = false                               -- Whether or not to use debugging features of FastCast
