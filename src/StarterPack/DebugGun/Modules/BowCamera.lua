@@ -70,6 +70,10 @@ function BowCamera:RestoreState()
         UserInputService.MouseBehavior = Enum.MouseBehavior.Default
         UserInputService.MouseIconEnabled = true
         UserInputService.MouseDeltaSensitivity = previousSensitivity
+        
+        -- Immediately restore camera type and subject
+        Camera.CameraType = previousCameraType
+        Camera.CameraSubject = previousCameraSubject
     end
 end
 
@@ -81,17 +85,12 @@ function BowCamera:UpdateTransition()
     if alpha >= 1 then
         self.transitioning = false
         Camera.FieldOfView = DEFAULT_FOV
-        -- Restore camera state after transition completes
-        if previousCameraType then
-            Camera.CameraType = previousCameraType
-            Camera.CameraSubject = previousCameraSubject
-        end
         return
     end
     
     -- Smoothly transition camera and FOV
     if previousCameraCFrame then
-        Camera.CFrame = Camera.CFrame:Lerp(previousCameraCFrame, alpha)
+        Camera.CFrame = previousCameraCFrame:Lerp(Camera.CFrame, 1 - alpha)
         Camera.FieldOfView = lerp(currentFOV, DEFAULT_FOV, alpha)
     end
 end
@@ -109,12 +108,12 @@ function BowCamera:UpdateAim(delta, sensitivity)
 end
 
 function BowCamera:Update(humanoidRootPart, shakeOffset)
-    if self.transitioning then
-        self:UpdateTransition()
-        return
+    if not self.enabled or not humanoidRootPart then 
+        if self.transitioning then
+            self:UpdateTransition()
+        end
+        return 
     end
-    
-    if not self.enabled or not humanoidRootPart then return end
 
     -- Set camera mode
     Camera.CameraType = Enum.CameraType.Scriptable
@@ -158,8 +157,9 @@ function BowCamera:SetEnabled(enabled)
     if enabled then
         self:SaveState()
         targetFOV = AIM_FOV
+        self.transitioning = false
     else
-        self:RestoreState()  -- Always call RestoreState when disabling
+        self:RestoreState()
     end
 end
 
@@ -168,7 +168,7 @@ function BowCamera:GetLookVector()
 end
 
 function BowCamera:Reset()
-    self:SetEnabled(false)
+    self.enabled = false
     self.transitioning = false
     currentYaw = 0
     currentPitch = 0
@@ -185,24 +185,7 @@ function BowCamera:Reset()
 end
 
 function BowCamera:Cleanup()
-    if self.enabled or self.transitioning then
-        self:RestoreState()
-        -- Wait for transition to complete
-        self.transitioning = false
-        if previousCameraType then
-            Camera.CameraType = previousCameraType
-            Camera.CameraSubject = previousCameraSubject
-        end
-    end
-    
-    self.enabled = false
-    currentYaw = 0
-    currentPitch = 0
-    currentFOV = DEFAULT_FOV
-    targetFOV = DEFAULT_FOV
-    Camera.FieldOfView = DEFAULT_FOV
-    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
-    UserInputService.MouseIconEnabled = true
+    self:Reset()
 end
 
 return BowCamera 

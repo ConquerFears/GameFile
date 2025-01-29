@@ -115,16 +115,14 @@ local function Update()
 
 	-- Update state
 	bowState:Update()
-	
-	-- Update cursor state
 	UpdateMouseIcon()
 
-	-- Update camera whenever it's enabled
+	-- Always update camera to handle transitions
+	local delta = UserInputService:GetMouseDelta()
 	if bowCamera.enabled then
-		local delta = UserInputService:GetMouseDelta()
 		bowCamera:UpdateAim(delta, UserInputService.MouseDeltaSensitivity)
-		bowCamera:Update(humanoidRootPart, Vector3.new())
 	end
+	bowCamera:Update(humanoidRootPart, Vector3.new())
 
 	-- Show UI elements when mouse is down and not in cooldown
 	if mouse and bowState.isMouseDown and bowState.currentState ~= BowState.States.COOLDOWN then
