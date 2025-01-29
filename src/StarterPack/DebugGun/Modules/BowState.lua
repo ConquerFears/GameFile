@@ -26,6 +26,7 @@ function BowState.new()
     self.isCameraLocked = false
     self.isAiming = false
     self.isTransitioningOut = false
+    self.isToolEquipped = false
     return self
 end
 
@@ -132,8 +133,7 @@ function BowState:CalculateChargePower()
 end
 
 function BowState:IsToolEquipped()
-    -- This should be implemented by the client script
-    return true
+    return self.isToolEquipped
 end
 
 function BowState:GetConstants()

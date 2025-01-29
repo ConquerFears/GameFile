@@ -52,6 +52,7 @@ local function OnInputBegan(input, gameHandled)
 
 	bowState.isMouseDown = true
 	bowState:TransitionTo(BowState.States.DRAWING)
+	bowCamera:SetEnabled(true)  -- Enable camera when starting to draw
 	DrawSound:Play()
 	UpdateMouseIcon()
 end
@@ -67,6 +68,7 @@ local function OnInputEnded(input, gameHandled)
 		bowState:TransitionTo(BowState.States.RELEASING)
 	else
 		bowState:TransitionTo(BowState.States.IDLE)
+		bowCamera:SetEnabled(false)  -- Disable camera if shot wasn't fired
 	end
 
 	bowState.isMouseDown = false
@@ -125,19 +127,41 @@ local function Update()
 end
 
 -- Equipment handlers
-Tool.Equipped:Connect(function()
+local function InitializeComponents()
 	mouse = Players.LocalPlayer:GetMouse()
-	UserInputService.InputBegan:Connect(OnInputBegan)
-	UserInputService.InputEnded:Connect(OnInputEnded)
-	RunService:BindToRenderStep("BowUpdate", Enum.RenderPriority.Camera.Value + 1, Update)
+	bowUI:Initialize()  -- Initialize UI when equipped
+	bowState.isToolEquipped = true
 	UpdateMouseIcon()
+end
+
+local function CleanupComponents()
+	UserInputService.MouseIconEnabled = true
+	bowState:TransitionTo(BowState.States.IDLE)
+	bowState.isToolEquipped = false
+	bowCamera:SetEnabled(false)
+	bowUI:Cleanup()
+	UpdateMouseIcon()
+end
+
+-- Connect input handlers
+local inputBeganConnection
+local inputEndedConnection
+local renderStepConnection
+
+Tool.Equipped:Connect(function()
+	InitializeComponents()
+	
+	-- Connect input handlers
+	inputBeganConnection = UserInputService.InputBegan:Connect(OnInputBegan)
+	inputEndedConnection = UserInputService.InputEnded:Connect(OnInputEnded)
+	renderStepConnection = RunService:BindToRenderStep("BowUpdate", Enum.RenderPriority.Camera.Value + 1, Update)
 end)
 
 Tool.Unequipped:Connect(function()
-	UserInputService.MouseIconEnabled = true
-	bowState:TransitionTo(BowState.States.IDLE)
-	bowCamera:SetEnabled(false)
-	bowUI:Cleanup()
-	RunService:UnbindFromRenderStep("BowUpdate")
-	UpdateMouseIcon()
+	CleanupComponents()
+	
+	-- Disconnect handlers
+	if inputBeganConnection then inputBeganConnection:Disconnect() end
+	if inputEndedConnection then inputEndedConnection:Disconnect() end
+	if renderStepConnection then RunService:UnbindFromRenderStep("BowUpdate") end
 end)

@@ -16,11 +16,14 @@ local TweenService = game:GetService("TweenService")
 
 function BowUI.new()
     local self = setmetatable({}, {__index = BowUI})
-    self:Initialize()
+    self.initialized = false
     return self
 end
 
 function BowUI:Initialize()
+    if self.initialized then return end
+    
+    self.initialized = true
     self.currentBracketSpread = BRACKET_SPREAD
     self:CreateScreenGui()
     self:CreateBrackets()
@@ -116,6 +119,7 @@ function BowUI:CreateVignette()
 end
 
 function BowUI:UpdateChargeBar(chargeTime, minDrawTime, maxDrawTime, mousePosition)
+    if not self.initialized then return end
     if not mousePosition then
         self.chargeBarContainer.Visible = false
         return
@@ -145,6 +149,7 @@ function BowUI:UpdateChargeBar(chargeTime, minDrawTime, maxDrawTime, mousePositi
 end
 
 function BowUI:UpdateBrackets(mousePosition, chargeTime, minDrawTime, maxDrawTime, baseSpreadMultiplier)
+    if not self.initialized then return end
     if not mousePosition then
         for _, bracket in ipairs(self.brackets) do
             bracket.Visible = false
@@ -192,6 +197,7 @@ function BowUI:UpdateBrackets(mousePosition, chargeTime, minDrawTime, maxDrawTim
 end
 
 function BowUI:UpdateVignette(chargeTime, minDrawTime, maxDrawTime)
+    if not self.initialized then return end
     if chargeTime <= 0 then
         self.vignette.BackgroundTransparency = 1
         return
@@ -203,8 +209,11 @@ function BowUI:UpdateVignette(chargeTime, minDrawTime, maxDrawTime)
 end
 
 function BowUI:Cleanup()
+    if not self.initialized then return end
+    
     if self.screenGui then
         self.screenGui:Destroy()
+        self.initialized = false
     end
 end
 
