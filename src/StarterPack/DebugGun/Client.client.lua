@@ -113,11 +113,17 @@ local function onUpdate()
 	local chargeTime = bowState:GetChargeTime()
 	local constants = bowState:GetConstants()
 	
-	-- Update camera
+	-- Update camera only in appropriate states
 	if currentState == BowState.States.DRAWING or 
 	   currentState == BowState.States.AIMED then
 		local delta = UserInputService:GetMouseDelta() * CAMERA_SENSITIVITY
 		bowCamera:UpdateAim(delta, 1)
+		
+		-- Update camera position
+		local rootPart = Character:FindFirstChild("HumanoidRootPart")
+		if rootPart then
+			bowCamera:Update(rootPart)
+		end
 	end
 	
 	-- Update UI
@@ -129,18 +135,11 @@ local function onUpdate()
 	if bowAnimations then
 		bowAnimations:UpdateDrawing(chargeTime, constants.MIN_DRAW_TIME)
 	end
-	
-	-- Update camera position
-	local rootPart = Character:FindFirstChild("HumanoidRootPart")
-	if rootPart then
-		bowCamera:Update(rootPart)
-	end
 end
 
 -- Equipment handlers
 local function onEquipped()
 	bowState.isToolEquipped = true
-	bowCamera:SetEnabled(true)
 	
 	-- Initialize projectiles if needed
 	if not bowProjectiles then
@@ -175,6 +174,16 @@ end
 bowState.stateChanged:Connect(function(transition)
 	if bowAnimations then
 		bowAnimations:HandleStateChange(transition.to, BowState.States)
+	end
+	
+	-- Handle camera based on state
+	if transition.to == BowState.States.DRAWING or 
+	   transition.to == BowState.States.AIMED then
+		bowCamera:SetEnabled(true)
+	elseif transition.to == BowState.States.RELEASING or
+		   transition.to == BowState.States.IDLE or
+		   transition.to == BowState.States.COOLDOWN then
+		bowCamera:SetEnabled(false)
 	end
 end)
 

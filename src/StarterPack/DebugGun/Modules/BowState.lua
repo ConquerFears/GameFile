@@ -175,8 +175,8 @@ function BowState:TransitionTo(newState)
     
     -- Create transition data
     local transitionData = {
-        from = previousState,
-        to = newState,
+        from = tostring(previousState),  -- Ensure string
+        to = tostring(newState),         -- Ensure string
         timestamp = transitionTime,
         duration = stateDuration
     }
