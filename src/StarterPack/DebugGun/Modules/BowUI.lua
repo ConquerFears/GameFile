@@ -134,6 +134,8 @@ function BowUI:UpdateChargeBar(chargeTime, minDrawTime, maxDrawTime, mousePositi
 
     -- Show charge bar during drawing and aimed states
     self.chargeBarContainer.Visible = chargeTime > 0
+    if not self.chargeBarContainer.Visible then return end
+
     local normalizedCharge = math.clamp(chargeTime / minDrawTime, 0, 1)
     local overchargeProgress = math.clamp((chargeTime - minDrawTime) / (maxDrawTime - minDrawTime), 0, 1)
 
@@ -171,7 +173,6 @@ function BowUI:UpdateBrackets(mousePosition, chargeTime, minDrawTime, maxDrawTim
     for _, bracket in ipairs(self.brackets) do
         bracket.Visible = shouldShowBrackets
     end
-
     if not shouldShowBrackets then
         self.currentBracketSpread = BRACKET_SPREAD
         return

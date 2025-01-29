@@ -87,10 +87,12 @@ local function handleInput(input, gameProcessed)
 	if input.UserInputType == MOUSE_BUTTON1 then
 		if input.UserInputState == Enum.UserInputState.Begin then
 			if bowState.currentState == BowState.States.IDLE then
+				bowState.isMouseDown = true  -- Set this BEFORE transition
 				bowState:TransitionTo(BowState.States.NOCKING)
 				DrawSound:Play()
 			end
 		elseif input.UserInputState == Enum.UserInputState.End then
+			bowState.isMouseDown = false  -- Set this BEFORE transition
 			if bowState.currentState == BowState.States.AIMED then
 				bowState:TransitionTo(BowState.States.RELEASING)
 				DrawSound:Stop()
@@ -132,12 +134,15 @@ local function onUpdate()
 		if rootPart then
 			bowCamera:Update(rootPart)
 		end
+		
+		-- Update UI only during drawing states
+		bowUI:UpdateChargeBar(chargeTime, constants.MIN_DRAW_TIME, constants.MAX_DRAW_TIME, Mouse)
+		bowUI:UpdateBrackets(Mouse, chargeTime, constants.MIN_DRAW_TIME, constants.MAX_DRAW_TIME, 1)
+		bowUI:UpdateVignette(chargeTime, constants.MIN_DRAW_TIME, constants.MAX_DRAW_TIME)
+	else
+		-- Hide UI when not drawing
+		bowUI:Reset()
 	end
-	
-	-- Update UI
-	bowUI:UpdateChargeBar(chargeTime, constants.MIN_DRAW_TIME, constants.MAX_DRAW_TIME, Mouse)
-	bowUI:UpdateBrackets(Mouse, chargeTime, constants.MIN_DRAW_TIME, constants.MAX_DRAW_TIME, 1)
-	bowUI:UpdateVignette(chargeTime, constants.MIN_DRAW_TIME, constants.MAX_DRAW_TIME)
 	
 	-- Update animations
 	if bowAnimations then

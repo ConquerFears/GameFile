@@ -76,23 +76,23 @@ function BowState:ApplyStateChanges(newState)
             self.nockStartTime = time()
             self.isAiming = false
             self.isCameraLocked = false
-            self.isMouseDown = true
+            -- Don't set isMouseDown here, it should be set before transition
         end,
         [BowState.States.IDLE_WITH_ARROW] = function()
             self.isAiming = false
             self.isCameraLocked = false
-            self.isMouseDown = true
+            -- Keep existing mouse state
         end,
         [BowState.States.DRAWING] = function()
             self.isAiming = true
             self.isCameraLocked = false
             self.drawStartTime = time()
-            self.isMouseDown = true
+            -- Keep existing mouse state
         end,
         [BowState.States.AIMED] = function()
             self.isAiming = true
             self.isCameraLocked = false
-            self.isMouseDown = true
+            -- Keep existing mouse state
         end,
         [BowState.States.RELEASING] = function()
             self.isAiming = false
@@ -238,16 +238,17 @@ function BowState:Update()
     if self.currentState == BowState.States.NOCKING then
         if stateDuration >= NOCKING_TIME then
             self:TransitionTo(BowState.States.IDLE_WITH_ARROW)
+        elseif not self.isMouseDown then
+            self:TransitionTo(BowState.States.IDLE)
         end
     elseif self.currentState == BowState.States.IDLE_WITH_ARROW then
-        -- Only transition to drawing if mouse is still held down
-        if self.isMouseDown then
+        if not self.isMouseDown then
+            self:TransitionTo(BowState.States.IDLE)
+        else
             self:TransitionTo(BowState.States.DRAWING)
-            self.drawStartTime = currentTime
         end
     elseif self.currentState == BowState.States.DRAWING then
         if not self.isMouseDown then
-            -- If mouse released during draw, cancel back to idle
             self:TransitionTo(BowState.States.IDLE)
             return
         end
@@ -260,7 +261,6 @@ function BowState:Update()
         end
     elseif self.currentState == BowState.States.AIMED then
         if not self.isMouseDown then
-            -- Only release if we're fully drawn
             self:TransitionTo(BowState.States.RELEASING)
         end
     elseif self.currentState == BowState.States.RELEASING then
@@ -276,7 +276,6 @@ end
 
 -- Keep existing utility methods
 function BowState:GetChargeTime()
-    -- Only return charge time during drawing or aimed states
     if self.currentState == BowState.States.DRAWING or 
        self.currentState == BowState.States.AIMED then
         if self.drawStartTime == 0 then return 0 end
