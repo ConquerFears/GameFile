@@ -2,11 +2,11 @@ local BowAnimations = {}
 
 -- Animation IDs
 local ANIMATION_IDS = {
-    IDLE = "74772536397822",
-    IDLE_WITH_ARROW = "114465249543883",
-    DRAWING = "137840324119416",
-    RELEASE = "102619029915670",
-    NOCK = "101306611205893"
+    IDLE = "rbxassetid://74772536397822",
+    IDLE_WITH_ARROW = "rbxassetid://114465249543883",
+    DRAWING = "rbxassetid://137840324119416",
+    RELEASE = "rbxassetid://102619029915670",
+    NOCK = "rbxassetid://101306611205893"
 }
 
 -- Constants
