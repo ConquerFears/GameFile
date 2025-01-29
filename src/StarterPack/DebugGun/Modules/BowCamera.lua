@@ -11,6 +11,7 @@ local DEFAULT_CAMERA_PITCH = -0.3
 local MOUSE_SENSITIVITY = 0.002
 local MAX_PITCH = 1.3
 local MIN_PITCH = -1.3
+local FOV_TRANSITION_SPEED = 0.1
 
 -- Services
 local RunService = game:GetService("RunService")
@@ -31,6 +32,11 @@ local previousMouseBehavior
 local previousMouseIcon
 local previousSensitivity
 
+-- Helper function for linear interpolation
+local function lerp(a, b, t)
+    return a + (b - a) * t
+end
+
 function BowCamera.new()
     local self = setmetatable({}, {__index = BowCamera})
     self.enabled = false
@@ -46,6 +52,7 @@ function BowCamera:SaveState()
     previousMouseBehavior = UserInputService.MouseBehavior
     previousMouseIcon = UserInputService.MouseIcon
     previousSensitivity = UserInputService.MouseDeltaSensitivity
+    currentFOV = Camera.FieldOfView
     
     -- Get initial angles from current camera
     local _, yaw, pitch = Camera.CFrame:ToOrientation()
@@ -57,6 +64,7 @@ function BowCamera:RestoreState()
     if previousCameraType then
         self.transitioning = true
         self.transitionStart = time()
+        targetFOV = DEFAULT_FOV
         
         -- Restore mouse state immediately
         UserInputService.MouseBehavior = previousMouseBehavior
@@ -74,12 +82,14 @@ function BowCamera:UpdateTransition()
         self.transitioning = false
         Camera.CameraType = previousCameraType
         Camera.CameraSubject = previousCameraSubject
+        Camera.FieldOfView = DEFAULT_FOV
         return
     end
     
-    -- Smoothly transition camera
+    -- Smoothly transition camera and FOV
     if previousCameraCFrame then
         Camera.CFrame = Camera.CFrame:Lerp(previousCameraCFrame, alpha)
+        Camera.FieldOfView = lerp(currentFOV, DEFAULT_FOV, alpha)
     end
 end
 
@@ -133,8 +143,9 @@ function BowCamera:Update(humanoidRootPart, shakeOffset)
     local targetPosition = shoulderPos - lookVector * CAMERA_DISTANCE + (shakeOffset or Vector3.new())
     Camera.CFrame = CFrame.new(targetPosition) * lookCFrame
     
-    -- Update FOV
-    Camera.FieldOfView = math.lerp(Camera.FieldOfView, AIM_FOV, 0.1)
+    -- Update FOV with smooth transition
+    currentFOV = lerp(currentFOV, AIM_FOV, FOV_TRANSITION_SPEED)
+    Camera.FieldOfView = currentFOV
 end
 
 function BowCamera:SetEnabled(enabled)
@@ -143,8 +154,10 @@ function BowCamera:SetEnabled(enabled)
     self.enabled = enabled
     if enabled then
         self:SaveState()
+        targetFOV = AIM_FOV
     else
         self:RestoreState()
+        targetFOV = DEFAULT_FOV
     end
 end
 
@@ -157,6 +170,7 @@ function BowCamera:Cleanup()
     self.transitioning = false
     UserInputService.MouseBehavior = Enum.MouseBehavior.Default
     UserInputService.MouseIconEnabled = true
+    Camera.FieldOfView = DEFAULT_FOV
 end
 
 return BowCamera 
