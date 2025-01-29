@@ -36,10 +36,14 @@ function BowState:CanTransitionTo(newState)
     -- Basic validity checks
     if not self:IsToolEquipped() then return false end
     
+    -- Always check cooldown, even if transitioning from IDLE
+    if newState == BowState.States.DRAWING and currentTime - self.lastShotTime < SHOT_COOLDOWN then
+        return false
+    end
+    
     -- State-specific checks
     if newState == BowState.States.DRAWING then
         return (self.currentState == BowState.States.IDLE or self.currentState == BowState.States.COOLDOWN) 
-            and currentTime - self.lastShotTime >= SHOT_COOLDOWN
             and not self.isCameraLocked
     elseif newState == BowState.States.AIMED then
         return self.currentState == BowState.States.DRAWING
@@ -48,7 +52,9 @@ function BowState:CanTransitionTo(newState)
     elseif newState == BowState.States.COOLDOWN then
         return self.currentState == BowState.States.RELEASING
     elseif newState == BowState.States.IDLE then
-        return true -- Can always return to idle
+        -- Only allow transition to IDLE if not in cooldown or cooldown is complete
+        return self.currentState ~= BowState.States.COOLDOWN or 
+               (currentTime - self.lastShotTime >= SHOT_COOLDOWN)
     end
     
     return false
@@ -149,10 +155,14 @@ function BowState:GetConstants()
 end
 
 function BowState:Reset()
-    self.currentState = BowState.States.IDLE
-    self.stateStartTime = 0
+    -- Don't reset cooldown-related variables if we're in cooldown
+    local wasInCooldown = self.currentState == BowState.States.COOLDOWN
+    local previousLastShotTime = self.lastShotTime
+    
+    self.currentState = wasInCooldown and BowState.States.COOLDOWN or BowState.States.IDLE
+    self.stateStartTime = wasInCooldown and time() - (time() - previousLastShotTime) or 0
     self.drawStartTime = 0
-    self.lastShotTime = 0
+    self.lastShotTime = wasInCooldown and previousLastShotTime or 0
     self.isMouseDown = false
     self.isReadyToShoot = false
     self.isCameraLocked = false

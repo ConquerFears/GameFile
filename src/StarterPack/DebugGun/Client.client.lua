@@ -122,7 +122,8 @@ local function Update()
 	
 	bowCamera:Update(humanoidRootPart, Vector3.new())
 	
-	if mouse then
+	-- Only show UI elements if not in cooldown and actively drawing
+	if mouse and bowState.currentState ~= BowState.States.COOLDOWN and bowState.isMouseDown then
 		bowUI:UpdateChargeBar(
 			chargeTime,
 			constants.MIN_DRAW_TIME,
@@ -138,11 +139,7 @@ local function Update()
 			0.75  -- BASE_SPREAD_MULTIPLIER
 		)
 		
-		bowUI:UpdateVignette(
-			chargeTime,
-			constants.MIN_DRAW_TIME,
-			constants.MAX_DRAW_TIME
-		)
+		-- Removed vignette update as requested
 	end
 end
 
@@ -153,6 +150,13 @@ local function InitializeComponents()
 	bowState:Reset()  -- Reset state on equip
 	bowState.isToolEquipped = true
 	bowCamera:Reset()  -- Reset camera on equip
+	
+	-- Add small delay to ensure camera is ready
+	task.delay(0.1, function()
+		if Tool.Parent:IsA("Backpack") then return end
+		bowCamera:SaveState()  -- Ensure camera state is saved properly
+	end)
+	
 	UpdateMouseIcon()
 end
 
@@ -160,7 +164,7 @@ local function CleanupComponents()
 	UserInputService.MouseIconEnabled = true
 	bowState:Reset()
 	bowState.isToolEquipped = false
-	bowCamera:Reset()
+	bowCamera:Cleanup()  -- Changed from Reset to Cleanup
 	bowUI:Reset()
 	bowUI:Cleanup()
 	UpdateMouseIcon()
@@ -172,6 +176,7 @@ local inputEndedConnection
 local renderStepConnection
 
 Tool.Equipped:Connect(function()
+	task.wait(0.1)  -- Add small delay before initialization
 	InitializeComponents()
 	
 	-- Connect input handlers
